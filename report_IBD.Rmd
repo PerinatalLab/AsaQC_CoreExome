@@ -1,0 +1,233 @@
+```{r echo=FALSE}
+#!/usr/bin/Rscript
+# pre-QC files
+# args <- commandArgs(TRUE)
+# inFile <- args[1]
+# inFile="starting"
+options(stringsAsFactors=F)
+fam=read.table(paste(inFile,".fam",sep=''),h=F)
+gnm=read.table(paste("./pre-QC/ibd/",inFile,"_ibd-results.genome",sep=''),h=T)
+```
+
+Report of IBD analysis stage of pre-QC
+========================================================
+
+Report produced by J. Juodakis on **`r format(Sys.time(), "%F %R")`**
+
+Data obtained from files **`r inFile`.bed**, `r inFile`.bim, `r inFile`.fam
+
+IBD statistics obtained from `r paste("./pre-QC/ibd/",inFile,"_ibd-results.genome",sep='')`
+
+------------------------------------------
+
+This is an additional report for the identity-by-descent analysis. The statistics provided here were generated using the .fam file that includes any adjustments following the pre-QC stage. This report will present any cases where IBD PI_HAT statistic deviates from the predictions, and will generate likely explanations for this deviation. 
+
+## Data Files Being Used
+
+```{r echo=FALSE}
+n_unq_fam = length(unique(fam$V1))
+n_unq_gnt = dim(fam)[1]
+n_pat_dcl = sum(fam$V3!=0) 
+n_mat_dcl = sum(fam$V4!=0)
+unq_pat_dcl = unique(fam[which(fam$V3!=0),"V3"])
+unq_mat_dcl = unique(fam[which(fam$V4!=0),"V4"])
+n_unq_pat_dcl = length(unq_pat_dcl)
+n_unq_mat_dcl = length(unq_mat_dcl)
+n_unq_pat_gnt = sum(unq_pat_dcl %in% fam$V2)
+n_unq_mat_gnt = sum(unq_mat_dcl %in% fam$V2)
+  ix=which((fam$V2!=0)&(fam$V3!=0)&(fam$V4!=0))
+n_ful_fam_trios = sum((fam[ix,"V3"] %in% fam$V2) & (fam[ix,"V4"] %in% fam$V2) )
+```
+
+In the .fam file used for this analysis, there are `r n_unq_fam` unique families with `r n_unq_gnt` genotyped individuals (rows). There are `r n_pat_dcl` declared fathers (V3) and `r n_mat_dcl` mothers (V4), of which `r n_unq_pat_dcl` and `r n_unq_mat_dcl` are unique;  `r n_unq_pat_gnt` and `r n_unq_mat_gnt` are actually genotyped in this dataset. In total there are `r n_ful_fam_trios` successfully genotyped full family trios. These declared relationships exist in the .fam file:
+
+```{r echo=FALSE}
+kable(t(table(gnm$RT)))
+```
+
+The IBD file has `r dim(gnm)[1]` pairwise comparisons, `r length(unique(c(gnm$FID1,gnm$FID2)))` unique families and `r length(unique(c(gnm$IID1,gnm$IID2)))` unique individuals.
+
+Pairwise PI_HAT value histogram split by type of declared relationship:
+
+```{r plots1, echo=FALSE, fig.width=12, fig.height=12}
+par(mfrow=c(2,2))
+gr_nms=names(table(gnm$RT))
+for (gr_nm in gr_nms) {
+  hist(gnm[ gnm$RT==gr_nm,"PI_HAT"],breaks=100,col="grey",main=gr_nm,xlim=c(0,1))
+}
+```
+
+
+```{r echo=FALSE}
+
+# extract all declared Parent-Offspring pairs
+sub=gnm[gnm$RT=="PO",]
+# of which problematic ones are these:
+PO = sub[ which((sub$PI_HAT<0.4) | (sub$PI_HAT>0.6) | (sub$Z1<0.9))  ,1:10]
+PO_unr = which(PO$PI_HAT < 0.2)
+PO_sib = which( ((PO$Z0>0.2)&(PO$Z0<0.3))&((PO$Z2>0.2)&(PO$Z2<0.3))   )
+PO_mzt = which(PO$Z2 > 0.9)
+PO_hsb = which( ((PO$Z0>0.4)&(PO$Z0<0.6))&((PO$Z1>0.4)&(PO$Z1<0.6))   )
+PO_n_overexpl = sum(duplicated(c(PO_unr,PO_sib,PO_mzt,PO_hsb))) # overlaping explanations
+if (dim(PO)[1]>0) {
+PO_unk   = which( ! seq(dim(PO)[1])  %in% unique(c(PO_unr,PO_sib,PO_mzt,PO_hsb)) ) # unexplained
+} else {
+PO_unk=NULL  
+}
+
+# extract all declared Full_Sib pairs
+sub=gnm[gnm$RT=="FS",]
+# of which problematic ones are these:
+FS = sub[ which( ((sub$Z0<0.15)|(sub$Z0>0.35))&((sub$Z2<0.15)|(sub$Z2>0.35)) )  ,1:10]
+FS_unr = which(FS$PI_HAT < 0.2)
+FS_pof = which(FS$Z1 > 0.9)
+FS_mzt = which(FS$Z2 > 0.9)
+FS_hsb = which( ((FS$Z0>0.4)&(FS$Z0<0.6))&((FS$Z1>0.4)&(FS$Z1<0.6))   )
+FS_n_overexpl = sum(duplicated(c(FS_unr,FS_pof,FS_mzt,FS_hsb))) # overlaping explanations
+if (dim(FS)[1]>0) {
+FS_unk   = which( ! seq(dim(FS)[1])  %in% unique(c(FS_unr,FS_pof,FS_mzt,FS_hsb)) ) # unexplained
+} else {
+FS_unk=NULL  
+}
+
+# extract all declared Unrelated pairs
+sub=gnm[gnm$RT=="UN",]
+# of which problematic ones are these:
+UN = sub[ which( sub$PI_HAT >= 0.10)   ,1:10]
+UN_pof = which(UN$Z1 > 0.9)
+UN_sib = which( ((UN$Z0>0.2)&(UN$Z0<0.3))&((UN$Z2>0.2)&(UN$Z2<0.3))   )
+UN_mzt = which(UN$Z2 > 0.9)
+UN_hsb = which( ((UN$Z0>0.4)&(UN$Z0<0.6))&((UN$Z1>0.4)&(UN$Z1<0.6))   )
+UN_n_overexpl = sum(duplicated(c(UN_pof,UN_sib,UN_mzt,UN_hsb))) # overlaping explanations
+if (dim(UN)[1]>0) {
+UN_unk   = which( ! seq(dim(UN)[1])  %in% unique(c(UN_pof,UN_sib,UN_mzt,UN_hsb)) ) # unexplained
+} else {
+UN_unk=NULL  
+}
+
+# extract all declared Unrelated pairs
+OT=gnm[gnm$RT=="OT",]
+# of which problematic ones are these:
+OT_unr = which(OT$PI_HAT < 0.2)
+OT_pof = which(OT$Z1 > 0.9)
+OT_sib = which( ((OT$Z0>0.2)&(OT$Z0<0.3))&((OT$Z2>0.2)&(OT$Z2<0.3))   )
+OT_mzt = which(OT$Z2 > 0.9)
+OT_hsb = which( ((OT$Z0>0.4)&(OT$Z0<0.6))&((OT$Z1>0.4)&(OT$Z1<0.6))   )
+OT_n_overexpl = sum(duplicated(c(OT_unr,OT_pof,OT_sib,OT_mzt,OT_hsb))) # overlaping explanations
+if (dim(OT)[1]>0) {
+OT_unk   = which( ! seq(dim(OT)[1])  %in% unique(c(OT_unr,OT_pof,OT_sib,OT_mzt,OT_hsb)) ) # unexplained
+} else {
+OT_unk=NULL  
+}
+
+```
+
+## Agreement and Conflicts between the .fam file and genetics
+
+Among the **`r sum(gnm$RT=="PO")`** declared **Parent-Offspring** pairs **`r dim(PO)[1]`** problems were found (`r length(PO_unr)` were genetically Unrelated, `r length(PO_sib)` Full Siblings, `r length(PO_mzt)` Monozygotic Twins, `r length(PO_hsb)` Half Siblings, `r length(PO_unk)` Unexplained, `r PO_n_overexpl` explanations were overlapping).
+
+Among the **`r sum(gnm$RT=="UN")`** declared **Unrelated** pairs **`r dim(UN)[1]`** problems (related pairs) were found (`r length(UN_pof)` were genetically Parent-Offspring pairs, `r length(UN_sib)` Full Siblings, `r length(UN_mzt)` Monozygotic Twins, `r length(UN_hsb)` Half Siblings, `r length(UN_unk)` Unexplained, `r UN_n_overexpl` explanations were overlapping).
+
+Among the **`r sum(gnm$RT=="FS")`** declared **Full Sibling** pairs **`r dim(FS)[1]`** problems were found (`r length(FS_unr)` were genetically Unrelated pairs, `r length(FS_pof)` Parent-Offspring pairs, `r length(FS_mzt)` Monozygotic Twins, `r length(FS_hsb)` Half Siblings, `r length(FS_unk)` Unexplained, `r FS_n_overexpl` explanations were overlapping).
+
+Among the **`r sum(gnm$RT=="OT")`** declared **Other-Type** relationship pairs `r length(OT_unr)` were genetically Unrelated, `r length(OT_pof)` were Parent-Offspring pairs, `r length(OT_sib)` were Full Siblings, `r length(OT_mzt)` Monozygotic Twins, `r length(OT_hsb)` Half Siblings, `r length(OT_unk)` Unexplained, `r OT_n_overexpl` explanations were overlapping.
+
+
+```{r eval=FALSE}
+## sitos lenteles dar neveikia
+------
+## Detailed list of explained conflicts
+
+### Declared as Parent-Offspring
+**Unrelated:**
+`r if(length(PO_unr)>0){kable(t(table(PO[PO_unr,c(1:4,7:9)])),format="markdown")}`
+
+**Full siblings:**
+`r if(length(PO_sib)>0){kable(t(table(PO[PO_sib,c(1:4,7:9)])),format="markdown")}`
+
+**Half siblings:**
+`r if(length(PO_hsb)>0){kable(t(table(PO[PO_hsb,c(1:4,7:9)])),format="markdown")}`
+
+**Monozygotic twins:**
+`r if(length(PO_mzt)>0){kable(t(table(PO[PO_mzt,c(1:4,7:9)])),format="markdown")}`
+
+------
+### Declared as Full-Sibling
+**Unrelated:**
+`r if(length(FS_unr)>0){kable(t(table(FS[FS_unr,c(1:4,7:9)])),format="markdown")}`
+
+**Parent-Offspring:**
+`r if(length(FS_pof)>0){kable(t(table(FS[FS_pof,c(1:4,7:9)])),format="markdown")}`
+
+**Half siblings:**
+`r if(length(FS_hsb)>0){kable(t(table(FS[FS_hsb,c(1:4,7:9)])),format="markdown")}`
+
+**Monozygotic twins:**
+`r if(length(FS_mzt)>0){kable(t(table(FS[FS_mzt,c(1:4,7:9)])),format="markdown")}`
+
+------
+### Declared as Other-Type
+**Unrelated:**
+`r if(length(OT_unr)>0){kable(t(table(OT[OT_unr,c(1:4,7:9)])),format="markdown")}`
+
+**Parent-Offspring:**
+`r if(length(OT_pof)>0){kable(t(table(OT[OT_pof,c(1:4,7:9)])),format="markdown")}`
+
+**Full siblings:**
+`r if(length(OT_sib)>0){kable(t(table(OT[OT_sib,c(1:4,7:9)])),format="markdown")}`
+
+**Half siblings:**
+`r if(length(OT_hsb)>0){kable(t(table(OT[OT_hsb,c(1:4,7:9)])),format="markdown")}`
+
+**Monozygotic twins:**
+`r if(length(OT_mzt)>0){kable(t(table(OT[OT_mzt,c(1:4,7:9)])),format="markdown")}`
+```
+
+------
+
+## Details about unexplained conflicts
+
+```{r,echo=FALSE, results='hide', warning = F, message=FALSE}
+library(xtable)
+```
+
+Unresolved conflicts among **Parent-Offspring** pairs:
+
+```{r,echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+if (sum(PO_unk)>0) {
+  tbl=xtable(PO[PO_unk,c(1:4,7:9)])
+  print(tbl,floating=FALSE,comment=FALSE,type='html')
+} else { print("...none...")}
+```
+
+Unresolved conflicts among **Unrelated** pairs:
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+if (sum(UN_unk)>0) {
+  tbl=xtable(UN[UN_unk,c(1:4,7:9)])
+  print(tbl,floating=FALSE,comment=FALSE,type='html')
+} else { print("...none...")}
+```
+
+Unresolved conflicts among **Full Sibling** pairs:
+
+```{r,echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+if (sum(FS_unk)>0) {
+  tbl=xtable(FS[FS_unk,c(1:4,7:9)])
+  print(tbl,floating = F, comment = F,type='html')
+} else { print("...none...")}
+```
+
+Unresolved conflicts among **Other-Type** pairs:
+
+```{r,echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+if (sum(OT_unk)>0) {
+  tbl=xtable(OT[OT_unk,c(1:4,7:9)])
+  print(tbl,floating = F, comment = F,type='html')
+} else { print("...none...")}
+```
+
+
+
+
+

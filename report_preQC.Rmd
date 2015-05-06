@@ -1,0 +1,293 @@
+```{r initialize, echo=FALSE}
+#!/usr/bin/Rscript
+
+## for debugging
+inFile = "data"
+outDir = "./pre-QC/"
+imiss_cutoff= 0.02
+lmiss_cutoff= 0.02
+maf_cutoff= 0.1
+hwe_cutoff= 0.0001
+hribos= 2
+
+# pre-QC files
+options(stringsAsFactors=F)
+library(knitr)
+
+```
+
+Main Report of Pre-QC Stage
+========================================================
+
+Report produced by J. Juodakis on **`r format(Sys.time(), "%F %R")`**
+
+Data obtained from files **`r inFile`.bed**, `r inFile`.bim, `r inFile`.fam
+
+Output written to directory `r outDir`
+
+------------------------------------------
+
+This is the main report encompassing these stages of analysis, starting from raw data:
+* General statistics of raw data
+* Temporary pre-QC filtering
+* Genotyped and indicated sex check
+These stages should end up in manual adjustment of .fam file (change of sex, family indications, removal of unsuitable individuals).
+
+# General statistics of raw data
+
+```{r fam_stats, echo=FALSE, cache=TRUE}
+fam=read.table(paste(inFile,".fam",sep=''),h=F)
+bim=read.table(paste(inFile,".bim",sep=''),h=F)
+
+n_unq_fam = length(unique(fam$V1))
+n_unq_gnt = dim(fam)[1]
+n_unq_snp = dim(bim)[1]
+n_pat_dcl = sum(fam$V3!=0) 
+n_mat_dcl = sum(fam$V4!=0)
+unq_pat_dcl = unique(fam[which(fam$V3!=0),"V3"])
+unq_mat_dcl = unique(fam[which(fam$V4!=0),"V4"])
+n_unq_pat_dcl = length(unq_pat_dcl)
+n_unq_mat_dcl = length(unq_mat_dcl)
+n_unq_pat_gnt = sum(unq_pat_dcl %in% fam$V2)
+n_unq_mat_gnt = sum(unq_mat_dcl %in% fam$V2)
+  ix=which((fam$V2!=0)&(fam$V3!=0)&(fam$V4!=0))
+n_ful_fam_trios = sum((fam[ix,"V3"] %in% fam$V2) & (fam[ix,"V4"] %in% fam$V2) )
+```
+
+
+## Individuals
+
+There are `r n_unq_fam` unique families in the .fam file with `r n_unq_gnt` genotyped individuals (rows). There are `r n_pat_dcl` declared fathers (V3) and `r n_mat_dcl` mothers (V4), of which `r n_unq_pat_dcl` and `r n_unq_mat_dcl` are unique;  `r n_unq_pat_gnt` and `r n_unq_mat_gnt` are actually successfully genotyped. In total there are `r n_ful_fam_trios` successfully genotyped full family trios.
+
+## SNPs
+
+The .bim file contains `r n_unq_snp` genotyped SNPs. They are distributed across chromosomes as follows:
+
+```{r chr_table, echo=FALSE}
+kable(t(table(bim$V1)),format="markdown")
+```
+
+
+# Temporary pre-QC filtering
+
+In order to facilitate IBD analysis and sex check, temporary pre-QC filtering was performed. (Note that all individuals and SNPs will be included again for the actual QC.) 
+
+The plots below present the filtering criteria and results for 4 filters - proportion of SNPs missing in each individual (IMISS), proportion of individuals lacking a certain SNP (LMISS), minor allele frequency (MAF), and divergence from Hardy-Weinberg equilibrium (HWE).
+
+The following cutoff values were used:  
+IMISS: `r imiss_cutoff`  
+LMISS: `r lmiss_cutoff`  
+MAF: `r maf_cutoff`  
+HWE: `r hwe_cutoff`  
+HET: +/- `r hribos` SD  
+
+```{r read_stats, echo=FALSE}
+
+## individuals missing
+imis=read.table(paste("./pre-QC/",inFile,"_stats.imiss",sep=""),h=T)
+totalI=dim(imis)[1]
+
+##snps missing
+lmis=read.table(paste("./pre-QC/",inFile,"_stats.lmiss",sep=""),h=T)
+totalS=dim(lmis)[1]
+
+##frequency
+frq=read.table(paste("./pre-QC/",inFile,"_stats.frq",sep=""),h=T)
+
+##hwe
+hwe=read.table(paste("./pre-QC/",inFile,"_stats.hwe",sep=""),h=T)
+hweUNAFF=hwe[which(hwe$TEST=="UNAFF"),]
+
+##heterozygosity
+het=read.table(paste("./pre-QC/",inFile,"_stats.het",sep=""),h=T)
+h=(het$N.NM. - het$O.HOM.)/het$N.NM.
+hMean=mean(h)
+hSD=sd(h)
+
+##check sex
+sex=read.table(paste("./pre-QC/",inFile,"_stats.sexcheck",sep=""),h=T)
+```
+
+```{r perform_tests, echo=FALSE}
+## initialize tables for output stat files
+statsI=imis[,c(2,6)]
+statsS=lmis[,c(2,5)]
+
+##put everything in the statsI
+statsI=cbind(statsI, h)
+statsI=cbind(statsI, sex$F)
+statsI=cbind(statsI, sex$PEDSEX)
+statsI=cbind(statsI, sex$SNPSEX)
+statsI=cbind(statsI, sex$STATUS)
+names(statsI)<-c("IID","F_MISS","HETEROZ","SEX_F","SEX_PED","SEX_SNP","pass_sex")
+
+## heteroz test
+hettest=!(statsI$HETEROZ<hMean-hribos*hSD | statsI$HETEROZ>hMean+hribos*hSD)
+
+## updateing the statsI
+statsI=cbind(statsI, statsI$F_MISS<imiss_cutoff)
+statsI=cbind(statsI, hettest)
+names(statsI)<-c("IID","F_MISS","HETEROZ","SEX_F","SEX_PED","SEX_SNP","pass_sex","pass_imiss","pass_het")
+               
+## sex check correction and output writing
+statsI$pass_sex[which(statsI$pass_sex=="OK")]=TRUE
+statsI$pass_sex[which(statsI$pass_sex!=TRUE)]=FALSE
+
+##put everything in the statsS
+statsS=cbind(statsS, frq$MAF)
+statsS=merge(statsS,hweUNAFF, by="SNP", sort=F, all=T)
+statsS=statsS[,c(1:4,11)]
+names(statsS)<-c("SNP","F_MISS","MAF","CHR","HWE_P")
+
+## hw and freq tests
+hwe_test=statsS$HWE_P>hwe_cutoff
+statsS=cbind(statsS, hwe_test)
+freq_test=(statsS$MAF>maf_cutoff)
+statsS=cbind(statsS, freq_test)
+statsS=cbind(statsS, statsS$F_MISS<lmiss_cutoff)
+names(statsS)=c("SNP","F_MISS","MAF","CHR","HWE_P","pass_hwe","pass_freq","pass_lmiss")
+```
+
+
+```{r plots1, echo=FALSE, fig.width=12, fig.height=12}
+par(mfrow=c(2,2))
+hist1=hist(imis$F_MISS,breaks=100,col="grey",main="IMISS filter",ylab="individuals",xlab="proportion of SNPs missing")
+yc1=max(hist1$counts)/2
+xc1=mean(range(imis$F_MISS,na.rm=T))
+n_excl1=totalI-sum(hist1$counts[1:sum(hist1$breaks<imiss_cutoff)],na.rm=T)
+text(xc1,yc1,paste("selected for exclusion: ",n_excl1,sep="") )  
+text(xc1,yc1*1.2,paste("imiss cutoff:",imiss_cutoff))
+abline(v=imiss_cutoff, col="red")
+
+hist2=hist(lmis$F_MISS,breaks=100,col="grey",main="LMISS filter",ylab="SNPs",xlab="proportion of individuals lacking")
+yc2=max(hist2$counts)/2
+xc2=mean(range(lmis$F_MISS,na.rm=T))
+n_excl2=totalS-sum(hist2$counts[1:sum(hist2$breaks<lmiss_cutoff)],na.rm=T)
+text(xc2,yc2,paste("selected for exclusion: ",n_excl2,sep="") )  
+text(xc2,yc2*1.2,paste("lmiss cutoff:",lmiss_cutoff))
+abline(v=lmiss_cutoff, col="red")
+
+hist3=hist(frq$MAF, breaks=100,col="grey",main="MAF filter",ylab="SNPs",xlab="minor allele frequency")
+yc3=max(hist3$counts)/2
+xc3=mean(range(frq$MAF,na.rm=T))
+n_excl3=sum(hist3$counts[1:sum(hist3$breaks<maf_cutoff)])
+text(xc3,yc3,paste("selected for exclusion: ",n_excl3,sep="") )  
+text(xc3,yc3*1.2,paste("MAF cutoff:",maf_cutoff))
+abline(v=maf_cutoff, col="red")
+
+hist4=hist(-log(hweUNAFF$P,base=10), breaks=100,col="grey",main="HWE filter",ylab="SNPs",xlab="negative log of P-value of deviation from HWE")
+yc4=max(hist4$counts)/2
+xc4=mean(range(-log(hweUNAFF$P,base=10),na.rm=T))
+n_excl4=sum(hist4$counts)-sum(hist4$counts[1:sum(hist4$breaks< -log(hwe_cutoff,base=10))],na.rm=T)
+text(xc4,yc4,paste("selected for exclusion: ",n_excl4,sep="") )  
+text(xc4,yc4*1.2,paste("HWE cutoff:",hwe_cutoff))
+abline(v=-log(hwe_cutoff,base=10),col="red")
+```
+
+The following plots present the filtering criteria and results for 2 more filters - proportion of hetorozygous loci in individuals (HET), and X chromosome homozygosity (SEX) in whole sample, males only, and females only.  
+Note that SEX filter removes individuals not based on the homozygosity statistics, but only where PEDSEX does not match SNPSEX.
+
+```{r plots2, echo=FALSE, fig.width=12, fig.height=12}
+par(mfrow=c(2,2))
+hist5=hist(h,breaks=100,col="grey",main="HET filter",ylab="individuals",xlab="proportion of heterozygous loci")
+nexcl5=totalI-sum(hettest)
+yc5=max(hist5$counts)/2
+xc5=mean(range(h,na.rm=T))-0.01
+text(xc5,yc5,paste("selected for exclusion:",nexcl5))
+text(xc5,yc5*1.2,paste("Heterozygosity cutoff in SDs:",hribos))
+abline(v=hMean, col="red")
+abline(v=hMean+hribos*hSD, col="red")
+abline(v=hMean-hribos*hSD, col="red")
+
+hist(sex$F, breaks=100,col="grey",main="SEX filter",ylab="individuals",xlab="homozygosity estimate F")
+hist(sex$F[ which(sex$PEDSEX==2)], breaks=100,col="grey",main="SEX filter (F only)",ylab="individuals",xlab="homozygosity estimate F")
+hist(sex$F[ which(sex$PEDSEX==1)], breaks=100,col="grey",main="SEX filter (M only)",ylab="individuals",xlab="homozygosity estimate F")
+```
+
+```{r final_filter, echo=FALSE}
+### final filter
+ffI=(statsI$pass_sex==TRUE)&(statsI$pass_het==TRUE)&(statsI$pass_imiss==TRUE)
+ffS=(statsS$pass_hwe==TRUE)&(statsS$pass_freq==TRUE)&(statsS$pass_lmiss==TRUE)&(as.numeric(statsS$CHR)<23)
+
+statsI=cbind(statsI, ffI)
+statsS=cbind(statsS, ffS)
+
+statsI2=cbind(imis$FID,statsI)
+selectedI=statsI2[which(statsI2$ffI),1:2]
+selectedS=statsS[which(statsS$ffS),1]
+
+ind_pass = sum(ffI, na.rm=T)
+fail_imiss = sum(statsI$pass_imiss!=TRUE,na.rm=T)
+fail_het = sum(statsI$pass_het!=TRUE,na.rm=T)
+fail_sex = sum(statsI$pass_sex!=TRUE,na.rm=T)
+
+snp_pass = sum(ffS, na.rm=T)
+fail_lmiss = sum(statsS$pass_lmiss!=TRUE,na.rm=T)
+fail_hwe = sum(statsS$pass_hwe!=TRUE,na.rm=T)
+fail_maf = sum(statsS$pass_freq!=TRUE,na.rm=T)
+fail_chr = totalS-sum(as.numeric(statsS$CHR)<23, na.rm=T)
+```
+
+## Final statistics of pre-QC filtering
+
+Starting number of individuals: `r totalI`  
+Number of individuals passed all filters: `r ind_pass`  
+Individuals flagged by IMISS filter: `r fail_imiss`  
+Individuals flagged by HET filter: `r fail_het`  
+Individuals flagged by SEX filter: `r fail_sex`  
+
+Starting number of SNPs: `r totalS`  
+Number of SNPs passed all filters: `r snp_pass`  
+SNPs flagged by LMISS filter: `r fail_lmiss`  
+SNPs flagged by HWE filter: `r fail_hwe`  
+SNPs flagged by MAF filter: `r fail_maf`  
+`r fail_chr` SNPs from non-autosomes were also removed.
+
+# Genotyped and indicated sex check
+
+``` {r sex_check, echo=FALSE}
+pat_ids= fam$V3[which(fam$V3!=0)]
+mat_ids= fam$V4[which(fam$V4!=0)]
+n_pat_sex_prob = sum( fam[which(fam$V2 %in% pat_ids),"V5"] !=1)
+n_mat_sex_prob = sum( fam[which(fam$V2 %in% mat_ids),"V5"] !=2)
+row_fathers = which(fam$V2 %in% pat_ids)
+row_mothers = which(fam$V2 %in% mat_ids)
+row_pat_sex_prob = which(fam[row_fathers,"V5"] !=1)
+row_mat_sex_prob = which(fam[row_mothers,"V5"] !=2)
+if (length(row_pat_sex_prob)>0){row_pat_sex_prob=fam[row_pat_sex_prob,]}
+if (length(row_mat_sex_prob)>0){row_mat_sex_prob=fam[row_mat_sex_prob,]}
+
+row_gen_sex_prob = which(statsI$pass_sex!=TRUE)
+print(row_gen_sex_prob)
+print(statsI[c(1,row_gen_sex_prob),])
+```
+
+Based on **.fam file information only**, the following changes are suggested.  
+In the .fam file `r n_pat_sex_prob` fathers had gender set to non-male, `r n_mat_sex_prob` mothers had gender set to non-female.   The sex of these individuals should be set to male:  
+```{r echo=FALSE}
+`r row_pat_sex_prob`  
+```
+
+The sex of these individuals should be set to female:  
+```{r echo=FALSE}
+`r row_mat_sex_prob`  
+```
+
+Based on **genotyped sex chromosome SNPs**, these mismatches were found and should be resolved manually:  
+```{r table_sex, echo=FALSE}
+statsI[row_gen_sex_prob,1:7]
+```
+
+# Writing final output
+Final output will now be written to directory `r outDir`. Files *full-stats* contain full filtering statistics, files *selected* contain the lists for automatic selection of individuals and SNPs to keep.
+
+```{r final_out, echo=FALSE}
+write.table(statsI2, file=paste(outDir,"full-statsI.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=T)
+write.table(statsS, file=paste(outDir,"full-statsS.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=T)
+write.table(selectedI, file=paste(outDir,"selectedI.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=F)
+write.table(selectedS, file=paste(outDir,"selectedS.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=F)
+```
+
+
+
+
