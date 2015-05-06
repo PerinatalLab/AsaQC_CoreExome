@@ -6,6 +6,7 @@
 FILENAME=$1
 FAMFILE=$2
 PLINK=${3:-~/soft/plink/plink}
+FILE_HIGHLD=~/soft/ref1000G/High-LD_genomic_regions.txt
 
 if [ $# -eq 0 ]; then
 	echo "No arguments provided - filename is mandatory";
@@ -21,7 +22,7 @@ ${PLINK} \
 # optional: replace .fam
 if [ -z "$2" ];
 then echo "no optional .fam file provided, using the one produced by PLINK"
-else cp ${FAMFILE} "${FILENAME}.fam"
+else cp ${FAMFILE} ${FILENAME}.fam
 echo "optional .fam file found and copied";
 fi
 
@@ -36,7 +37,7 @@ ${PLINK} \
 --hardy \
 --het \
 --check-sex \
---out "./pre-QC/${FILENAME}_stats"
+--out ./pre-QC/${FILENAME}_stats
 echo "PLINK analysis complete."
 
 # R script to analyze
@@ -57,33 +58,43 @@ ${PLINK} \
 --extract ./pre-QC/selectedS.txt \
 --keep ./pre-QC/selectedI.txt \
 --make-bed \
---out "./pre-QC/${FILENAME}_filtered"
+--out ./pre-QC/${FILENAME}_filtered
 echo "Filtering complete."
+
+# plink to prune high LD regions from a supplied file of ranges
+echo "################################"
+echo "Launching PLINK to prune high LD regions"
+${PLINK} \
+--bfile ./pre-QC/${FILENAME}_filtered \
+--exclude range ${FILE_HIGHLD} \
+--make-bed \
+--out ./pre-QC/${FILENAME}_prunedLD
+echo "High LD regions pruned"
 
 ## plink to calculate correlation
 echo "################################"
 echo "Launching PLINK to prune correlated SNPs"
 mkdir pre-QC/ibd/
 ${PLINK} \
---bfile "./pre-QC/${FILENAME}_filtered" \
+--bfile ./pre-QC/${FILENAME}_prunedLD \
 --indep-pairwise 100 25 0.2 \
---out "./pre-QC/ibd/${FILENAME}_correlated"
+--out ./pre-QC/ibd/${FILENAME}_correlated
 
 # plink to prune correlated and extract snps
 ${PLINK} \
---bfile "./pre-QC/${FILENAME}_filtered" \
---extract "./pre-QC/ibd/${FILENAME}_correlated.prune.in" \
+--bfile ./pre-QC/${FILENAME}_prunedLD \
+--extract ./pre-QC/ibd/${FILENAME}_correlated.prune.in \
 --make-bed \
---out "./pre-QC/ibd/${FILENAME}_pruned"
+--out ./pre-QC/ibd/${FILENAME}_pruned
 echo "Pruning complete."
 
 # plink to calculate ibd
 echo "################################"
 echo "Launching PLINK to calculate IBD statistics"
 ${PLINK} \
---bfile "./pre-QC/${FILENAME}_filtered" \
+--bfile ./pre-QC/${FILENAME}_pruned \
 --genome \
---out "./pre-QC/ibd/${FILENAME}_ibd-results"
+--out ./pre-QC/ibd/${FILENAME}_ibd-results
 echo "IBD statistics calculated."
 
 # R script to analyze ibd

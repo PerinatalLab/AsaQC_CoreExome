@@ -2,13 +2,13 @@
 #!/usr/bin/Rscript
 
 ## for debugging
-inFile = "data"
-outDir = "./pre-QC/"
-imiss_cutoff= 0.02
-lmiss_cutoff= 0.02
-maf_cutoff= 0.1
-hwe_cutoff= 0.0001
-hribos= 2
+#inFile = "data"
+#outDir = "./pre-QC/"
+#imiss_cutoff= 0.02
+#lmiss_cutoff= 0.02
+#maf_cutoff= 0.1
+#hwe_cutoff= 0.0001
+#hribos= 2
 
 # pre-QC files
 options(stringsAsFactors=F)
