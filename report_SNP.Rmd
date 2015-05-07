@@ -1,0 +1,156 @@
+```{r echo=FALSE}
+#!/usr/bin/Rscript
+
+library(knitr)
+options(stringsAsFactors=F)
+
+cutoffs<-read.table(cutoffFile,h=F)
+lmiss_cutoff= as.numeric(cutoffs[1,])
+hwe_cutoff= as.numeric(cutoffs[2,])
+maf_cutoff= as.numeric(cutoffs[3,])
+me_cutoff =as.numeric(cutoffs[4,])
+
+## for debugging
+#inFile = "./QC_snp_1/data_clean_stats"
+#outDir = "./QC_snp_1/"
+#cutoffFile = "./QC_snp_1/shiny_snp_cut.txt"
+#lmiss_cutoff= 0.02
+#maf_cutoff =0.1
+#hwe_cutoff = 0.0001
+#me_cutoff =10
+
+roundNumber=as.numeric(substr(outDir,nchar(outDir)-1,nchar(outDir)-1))
+```
+
+
+Analysis report of QC SNP statistics
+========================================================
+
+Report produced by J. Juodakis on **`r format(Sys.time(), "%F %R")`**
+
+Data statistics obtained from files `r inFile`.lmiss etc.
+
+Output written to directory `r outDir`
+
+------------------------------------------
+
+```{r read_stats, echo=FALSE}
+##snps missing
+lmis=read.table(paste(inFile,".lmiss",sep=""),h=T,stringsAsFactors=F)
+totalS=dim(lmis)[1]
+
+## initialize tables for output stat files
+statsS=lmis[,c(2,5)]
+
+##frequency
+frq=read.table(paste(inFile,".frq",sep=""),h=T,stringsAsFactors=F)
+
+##hwe
+hwe=read.table(paste(inFile,".hwe",sep=""),h=T,stringsAsFactors=F)
+hweUNAFF=hwe[which(hwe$TEST=="UNAFF"),]
+
+##put everything in the statsS
+statsS=cbind(statsS, frq$MAF)
+statsS=merge(statsS,hweUNAFF, by="SNP", sort=F, all=T)
+statsS=statsS[,c(1:4,11)]
+names(statsS)<-c("SNP","F_MISS","MAF","CHR","HWE_P")
+
+## mendel errors
+merrors=read.table(paste(inFile,".lmendel",sep=""),h=T,stringsAsFactors=F)
+statsS=merge(statsS,merrors, by="SNP", sort=F, all=T)
+statsS=statsS[,c(1:5,7)]
+names(statsS)<-c("SNP","F_MISS","MAF","CHR","HWE_P","MERRORS")
+```
+
+## General Info
+
+In this round of QC, statistics on **`r totalS` SNPs** were analyzed.
+
+```{r do_tests, echo=FALSE}
+## all the tests
+hwe_test=statsS$HWE_P>hwe_cutoff
+statsS=cbind(statsS, hwe_test)
+freq_test=(statsS$MAF>maf_cutoff)
+statsS=cbind(statsS, freq_test)
+statsS=cbind(statsS, statsS$F_MISS<lmiss_cutoff)
+me_test=(statsS$MERRORS<me_cutoff | is.na(statsS$MERRORS))
+statsS=cbind(statsS, me_test)
+names(statsS)=c("SNP","F_MISS","MAF","CHR","HWE_P","MERRORS","pass_hwe","pass_freq","pass_lmiss","pass_mendel")
+```
+
+The following plots present the filtering criteria and results for 3 filters - proportion of individuals lacking a certain SNP (LMISS), minor allele frequency (MAF), and divergence from Hardy-Weinberg equilibrium (HWE).
+
+```{r plots1, echo=FALSE, fig.height=12, fig.width=12}
+## draw histograms
+par(mfrow=c(2,2))
+hist2=hist(lmis$F_MISS,breaks=100,col="grey",main="LMISS filter",ylab="SNPs",xlab="proportion of individuals lacking")
+yc2=max(hist2$counts)/2
+xc2=mean(range(lmis$F_MISS,na.rm=T))
+n_excl2=totalS-sum(hist2$counts[1:sum(hist2$breaks<lmiss_cutoff)],na.rm=T)
+text(xc2,yc2,paste("selected for exclusion: ",n_excl2,sep="") )  
+text(xc2,yc2*1.2,paste("lmiss cutoff:",lmiss_cutoff))
+abline(v=lmiss_cutoff, col="red")
+
+hist3=hist(frq$MAF, breaks=100,col="grey",main="MAF filter",ylab="SNPs",xlab="minor allele frequency")
+yc3=max(hist3$counts)/2
+xc3=mean(range(frq$MAF,na.rm=T))
+n_excl3=sum(hist3$counts[1:sum(hist3$breaks<maf_cutoff)],na.rm=T)+sum(is.na(frq$MAF))
+text(xc3,yc3,paste("selected for exclusion: ",n_excl3,sep="") )  
+text(xc3,yc3*1.2,paste("MAF cutoff:",maf_cutoff))
+abline(v=maf_cutoff, col="red")
+
+hist4=hist(-log(hweUNAFF$P,base=10), breaks=100,col="grey",main="HWE filter",ylab="SNPs",xlab="negative log of P-value of deviation from HWE")
+yc4=max(hist4$counts)/2
+xc4=mean(range(-log(hweUNAFF$P,base=10),na.rm=T))
+n_excl4=totalS-sum(hist4$counts[1:sum(hist4$breaks<=-log(hwe_cutoff,base=10))],na.rm=T)
+text(xc4,yc4,paste("selected for exclusion: ",n_excl4,sep="") )  
+text(xc4,yc4*1.2,paste("HWE cutoff:",hwe_cutoff))
+abline(v=-log(hwe_cutoff,base=10),col="red")
+```
+
+The following plots present the result for 1 additional filter - Mendelian errors observed in each SNP (MERR). Note that by default, lower number of breaks is used and additional zoom in is often required. This is to be expected when the number of fully genotyped family trios is low.
+
+```{r plots2, echo=FALSE, fig.height=6, fig.width=12}
+hist6=hist(merrors$N,col="grey",breaks=50, main="MERR filter",ylab="SNPs",xlab="individuals with error in this SNP")
+hist5=hist(statsS$MERRORS[statsS$MERRORS>0],col="grey",breaks=10, main="MERR filter (zoomed in)",ylab="SNPs",xlab="individuals with error in this SNP")
+yc5=max(hist5$counts)/2
+xc5=mean(range(statsS$MERRORS,na.rm=T))
+n_excl5=sum(hist6$counts)-sum(hist6$counts[1:sum(hist6$breaks<=me_cutoff)],na.rm=T)
+text(xc5,yc5,paste("selected for exclusion: ",n_excl5,sep="") )  
+text(xc5,yc5*1.2,paste("MAF cutoff:",me_cutoff))
+abline(v=me_cutoff, col="red")
+```
+
+```{r echo=FALSE}
+### final filter
+ffS=(statsS$pass_hwe==TRUE)&(statsS$pass_freq==TRUE)&(statsS$pass_lmiss==TRUE)&(statsS$pass_mendel==TRUE)
+statsS=cbind(statsS, ffS)
+
+selectedS=statsS[which(statsS$ffS),1]
+
+snp_pass = sum(ffS, na.rm=T)
+fail_lmiss = sum(statsS$pass_lmiss!=TRUE)
+fail_hwe = totalS-sum(statsS$pass_hwe,na.rm=T)
+fail_maf = sum(statsS$pass_freq!=TRUE,na.rm=T)
+fail_merr = sum(statsS$pass_mendel!=TRUE)
+fail_chr = totalS-sum(as.numeric(statsS$CHR)<23, na.rm=T)
+```
+
+## Final statistics of pre-QC filtering
+
+Starting number of SNPs: `r totalS`  
+Number of SNPs passed all filters: `r snp_pass`  
+SNPs flagged by LMISS filter: `r fail_lmiss`  
+SNPs flagged by HWET filter: `r fail_hwe`  
+SNPs flagged by MAF filter: `r fail_maf`  
+SNPs flagged by MERR filter: `r fail_merr`  
+`r fail_chr` SNPs from non-autosomes were also removed.
+
+
+## Writing final output
+Final output will now be written to directory `r outDir`. File *full-stats* contains full filtering statistics, file *selected* contains the list for automatic selection of SNPs to keep.
+
+```{r final_out, echo=FALSE}
+write.table(statsS, file=paste(outDir,"full-statsS.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=T)
+write.table(selectedS, file=paste(outDir,"selectedS.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=F)
+```

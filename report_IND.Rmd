@@ -1,0 +1,132 @@
+```{r echo=FALSE}
+#!/usr/bin/Rscript
+library(knitr)
+options(stringsAsFactors=F)
+
+cutoffs<-read.table(cutoffFile,h=F)
+imiss_cutoff= as.numeric(cutoffs[1,])
+hribos= as.numeric(cutoffs[2,])
+me_cutoff= as.numeric(cutoffs[3,])
+
+## for debugging
+#inFile = "./QC_ind_1/starting_stats"
+#outDir = "./QC_ind_1/"
+#cutoffFile = "./QC_ind_1/shiny_ind_cut.txt"
+#imiss_cutoff= 0.02
+#hribos= 2
+#me_cutoff =100
+
+roundNumber=as.numeric(substr(outDir,nchar(outDir)-1,nchar(outDir)-1))
+```
+
+Analysis report of QC individual statistics, round `r roundNumber`
+========================================================
+
+Report produced by J. Juodakis on **`r format(Sys.time(), "%F %R")`**
+
+Data statistics obtained from files `r inFile`.imiss etc.
+
+Output written to directory `r outDir`
+
+------------------------------------------
+
+```{r read_stats, echo=FALSE}
+## individuals missing
+imis=read.table(paste(inFile,".imiss",sep=""),h=T,stringsAsFactors=F)
+totalI=dim(imis)[1]
+
+##heterozygosity
+het=read.table(paste(inFile,".het",sep=""),h=T,stringsAsFactors=F)
+h=(het$N.NM. - het$O.HOM.)/het$N.NM.
+hMean=mean(h)
+hSD=sd(h)
+
+## mendel errors
+merrors=read.table(paste(inFile,".imendel",sep=""),h=T,stringsAsFactors=F)
+
+## initialize tables for output stat files
+statsI=imis[,c(2,6)]
+statsI=cbind(statsI, h)
+statsI=cbind(imis$FID,statsI)
+statsI=merge(statsI,merrors, by="IID", sort=F, all=T)
+statsI=statsI[,c(1:4,6)]
+names(statsI)<-c("FID","IID","F_MISS","HETEROZ", "MERRORS")
+```
+
+## General Info
+
+In this round of QC, statistics on **`r totalI` individuals** were analyzed.
+
+```{r do_tests, echo=FALSE}
+## tests for merrors and heterozygosity
+metest=!(statsI$MERRORS>me_cutoff)
+metest=(metest==T | is.na(metest))
+hettest=!(statsI$HETEROZ<hMean-hribos*hSD | statsI$HETEROZ>hMean+hribos*hSD)
+
+## updating the statsI
+statsI=cbind(statsI, statsI$F_MISS<imiss_cutoff)
+statsI=cbind(statsI, hettest)
+statsI=cbind(statsI, metest)
+names(statsI)<-c("FID","IID","F_MISS","HETEROZ","MERRORS","pass_imiss","pass_het","pass_mendel")
+```
+
+The following plots present the filtering criteria and results for 3 filters - proportion of SNPs missing in each individual (IMISS), proportion of heterozygous loci in each individual (HET) and SNPs with Mendelian errors per individual (MERR).
+
+```{r plots1, echo=FALSE, fig.height=12, fig.width=12}
+## draw histograms
+par(mfrow=c(2,2))
+hist1=hist(imis$F_MISS,breaks=100,col="grey",main="IMISS filter",ylab="individuals",xlab="proportion of SNPs missing")
+yc1=max(hist1$counts)/2
+xc1=mean(range(imis$F_MISS,na.rm=T))
+n_excl1=totalI-sum(hist1$counts[1:sum(hist1$breaks<=imiss_cutoff)],na.rm=T)
+text(xc1,yc1,paste("selected for exclusion: ",n_excl1,sep="") )  
+text(xc1,yc1*1.2,paste("imiss cutoff:",imiss_cutoff))
+abline(v=imiss_cutoff, col="red")
+
+hist5=hist(h,breaks=100,col="grey",main="HET filter",ylab="individuals",xlab="proportion of heterozygous loci")
+nexcl5=totalI-sum(hettest)
+yc5=max(hist5$counts)/2
+xc5=mean(range(h,na.rm=T))
+text(xc5,yc5,paste("selected for exclusion:",nexcl5))
+text(xc5,yc5*1.2,paste("Heterozygosity cutoff in SDs:",hribos))
+abline(v=hMean, col="red")
+abline(v=hMean+hribos*hSD, col="red")
+abline(v=hMean-hribos*hSD, col="red")
+
+hist3=hist(merrors$N,breaks=100,col="grey", main="MERR filter",ylab="individuals",xlab="SNPs with errors in this individual")
+yc3=max(hist3$counts)/2
+xc3=mean(range(merrors$N,na.rm=T))
+n_excl3=sum(hist3$counts)-sum(hist3$counts[1:sum(hist3$breaks<=me_cutoff)],na.rm=T)
+text(xc3,yc3,paste("selected for exclusion: ",n_excl3,sep="") )  
+text(xc3,yc3*1.2,paste("mendel cutoff:",me_cutoff))
+abline(v=me_cutoff, col="red")
+```
+
+```{r echo=FALSE}
+### final filter
+ffI=(statsI$pass_het==TRUE)&(statsI$pass_mendel==TRUE)&(statsI$pass_imiss==TRUE)
+statsI=cbind(statsI, ffI)
+
+selectedI=statsI[which(statsI$ffI),1]
+selectedI=cbind(statsI[which(statsI$ffI),2],selectedI)
+
+ind_pass = sum(ffI, na.rm=T)
+fail_imiss = sum(statsI$pass_imiss!=TRUE)
+fail_het = sum(statsI$pass_het!=TRUE)
+fail_mendel = sum(statsI$pass_mendel!=TRUE)
+```
+
+## Final statistics of pre-QC filtering
+Starting number of individuals: `r totalI`  
+Number of individuals passed all filters: `r ind_pass`  
+Individuals flagged by IMISS filter: `r fail_imiss`  
+Individuals flagged by HET filter: `r fail_het`  
+Individuals flagged by MERR filter: `r fail_mendel`  
+
+## Writing final output
+Final output will now be written to directory `r outDir`. Files *full-stats* contain full filtering statistics, files *selected* contain the lists for automatic selection of individuals and SNPs to keep.
+
+```{r final_out, echo=FALSE}
+write.table(statsI, file=paste(outDir,"full-statsI.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=T)
+write.table(selectedI, file=paste(outDir,"selectedI.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=F)
+```

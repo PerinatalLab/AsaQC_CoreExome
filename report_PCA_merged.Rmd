@@ -1,0 +1,170 @@
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#!/usr/bin/Rscript
+
+options(stringsAsFactors=FALSE)
+library(knitr)
+library(ggplot2)
+library(gdata)
+library(rgl)
+knit_hooks$set(webgl = hook_webgl)
+
+## for debugging
+#args=commandArgs(TRUE)
+#inFile=args[1]
+#sampleFile=args[2]
+
+#inFile <- "./PCA2/data_clean.eigenvec"
+#sampleFile <- "/home/julius/soft/ref1000G/ALL_1000G_phase1integrated_v3.sample"
+```
+
+Report on PCA of merged reference and sample data
+========================================================
+
+Report produced by J. Juodakis on **`r format(Sys.time(), "%F %R")`**
+
+PCA eigenvectors obtained from file **`r inFile`**
+
+Sample data obtained from file **`r sampleFile`**
+
+------------------------------------------
+
+```{r read_data, echo=FALSE}
+ev=read.table(inFile,h=F)
+sample=read.table(sampleFile,h=T)
+
+refs=ev[ev$V2==1,]
+ours=ev[ev$V2!=1,]
+
+ones=rep("sample",dim(ours)[1])
+ours2=cbind(ours$V2,ours[,3:5],ones,ones)
+names(ours2)=c("iid","p1","p2","p3","population","group")
+refs2=cbind(refs$V2,refs[,3:5],sample$population,sample$group)
+names(refs2)=c("iid","p1","p2","p3","population","group")
+
+all=rbind(ours2,refs2)
+```
+
+```{r calculate_eucl, echo=FALSE}
+sube2=all[all$group=="EUR","p1"]
+sube3=all[all$group=="EUR","p2"]
+sube4=all[all$group=="EUR","p3"]
+
+sube2a=sube2-mean(sube2)
+sube3a=sube3-mean(sube3)
+sube4a=sube4-mean(sube4)
+
+sde=sqrt(sd(sube2a)^2+sd(sube3a)^2+sd(sube4a)^2)
+
+eucl=sqrt(sube2a^2+sube3a^2+sube4a^2)
+eucl2=c(-eucl,eucl)
+sdeucl=sd(eucl2)
+
+euclmusu=sqrt((ours2$p1-mean(sube2))^2+(ours2$p2-mean(sube3))^2+(ours2$p3-mean(sube4))^2)
+oursE=cbind(ours2,euclmusu)
+oursBad=oursE[oursE$euclmusu>3*sdeucl,]
+```
+
+## Significant outliers
+
+For outlier detection, Euclidean distance of each sample from the EUR group center of mass is calculated. Distribution of this distance is presented in further below.  
+An SD value was calculated after mirroring this distribution around x=0, and 3*SD is used as a cutoff. Individuals whose distances exceed this cutoff are listed in the table below.
+
+```{r EuclData, echo=FALSE}
+kable(oursBad[,c(1:4,7)],format="markdown")
+hist(euclmusu,col="grey",breaks=30, main="Euclidean distance distribution",xlab="Euclidean distance from EUR group center")
+```
+
+------------
+## Visualization of the results
+
+The plots below present 2D projections of the points along the first 3 principal components.  
+Colors reflect different groups or populations of the reference genome.
+
+```{r flat_plots, echo=FALSE}
+tinkami=all[(all$group=="EUR"),]
+musu=all[(all$group=="sample"),]
+
+ggplot(all, aes(x=p1, y=p2, color=group))+geom_point(size=3)+ggtitle("p1 vs p2")
+ggplot(all, aes(x=p1, y=p3, color=group))+geom_point(size=3)+ggtitle("p1 vs p3")
+ggplot(all, aes(x=p2, y=p3, color=group))+geom_point(size=2)+ggtitle("p2 vs p3")
+
+ggplot(all, aes(x=p1, y=p2, color=population))+geom_point(size=2)+ggtitle("p1 vs p2 on POPULATIONS")
+```
+
+The plots below show the projections of the points along the first 2 principal components. *Ellipses* show the region between 5-95 percentiles of the data, assuming t or normal distributions. *Circles* show the region of 3 SD of Euclidean distance (assuming mirrored distribution) or 3 times geometrical average of SD along each principal component.  
+SD of Euclidean distance: **`r sdeucl`**  
+Geometrical average of SD along each PC: **`r sde`**  
+
+```{r ellipse_plots, echo=FALSE}
+ggplot(all, aes(x=p1, y=p2, color=group))+geom_point(size=2)+stat_ellipse(data=tinkami)+
+        ggtitle("p1 v p2 + t distribution 5-95 %")
+ggplot(all, aes(x=p1, y=p2, color=group))+geom_point(size=2)+stat_ellipse(data=tinkami, type="norm")+
+        ggtitle("p1 v p2 + normal distribution 5-95 %")
+
+ggplot(all, aes(x=p1, y=p2, color=group,label=iid))+geom_point(size=2)+
+        stat_ellipse(data=all[all$group=="EUR",], type="euclid",level=3*sdeucl)+
+        ggtitle("p1 v p2 + 3 SDs of euclidean distance")
+ggplot(all, aes(x=p1, y=p2, color=group,label=iid))+geom_point(size=2)+
+        stat_ellipse(data=all[all$group=="EUR",], type="euclid",level=3*sde)+
+        ggtitle("p1 v p2 + 3x geom. averaged SD")
+```
+
+The following images represent the positiong of data in 3D space formed by the first 3 principal components. *Sphere* covers the region of 3 SD of Euclidean distance (same as above). *Lines* are the actual Euclidean distance to the EUR group center of mass.  
+To analyze the object in 3D, it is best to manually run the .Rmd file in R.
+
+```{r calculate_things, echo=FALSE, warning=FALSE}
+all$group=as.factor(all$group)
+attach(ours2)
+xai=interleave(p1,rep(mean(p1),length(p1)))
+yai=interleave(p2,rep(mean(p2),length(p2)))
+zai=interleave(p3,rep(mean(p3),length(p3)))
+detach("ours2")
+```
+
+```{r plot_3d1, webgl=TRUE, echo=FALSE, warning=FALSE}
+plot3d(all[,c("p1","p2","p3")],col=as.integer(all$group))
+par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
+view3d(theta=0,phi=-45)
+
+grid3d(c("x","y","z"))
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+segments3d(xai,yai,zai)
+```
+
+```{r plot_3d2, webgl=TRUE, echo=FALSE, warning=FALSE}
+plot3d(all[,c("p1","p2","p3")],col=as.integer(all$group))
+par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
+view3d(theta=-60,phi=0)
+
+grid3d(c("x","y","z"))
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+segments3d(xai,yai,zai)
+```
+
+```{r plot_3d3, webgl=TRUE, echo=FALSE, warning=FALSE}
+plot3d(all[,c("p1","p2","p3")],col=as.integer(all$group))
+par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
+view3d(theta=30,phi=0)
+
+grid3d(c("x","y","z"))
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+segments3d(xai,yai,zai)
+```
+
+```{r plot_3d4, webgl=TRUE, echo=FALSE, warning=FALSE}
+plot3d(all[,c("p1","p2","p3")],col=as.integer(all$group))
+par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
+view3d(theta=90,phi=60)
+
+grid3d(c("x","y","z"))
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+segments3d(xai,yai,zai)
+```
+
+```{r plot_labels, echo=FALSE, eval=FALSE}
+## this clutters the plot images, so use only in R
+text3d(oursBad[,2:4],text=oursBad$iid)
+
+## this spins
+play3d(spin3d(rpm=3))
+```
