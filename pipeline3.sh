@@ -146,6 +146,7 @@ ${PLINK} \
 echo "Merging complete."
 
 # remove SNPs which were genotyped in only one population (required for PCA)
+#### atkreipti demesi, kad filtras hardcoded cutoff naudoja
 echo "########################"
 echo "removing alleles present in only one population"
 ${PLINK} \
@@ -182,6 +183,7 @@ ${PLINK} \
 echo "All pruning complete."
 
 ## actual PCA
+## galbut PCA reiktu naudoti tik founderius???
 ${GCTA} \
 --bfile ${DIROUT}_prunedLD \
 --autosome \
