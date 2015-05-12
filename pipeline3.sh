@@ -30,13 +30,17 @@ ${PLINK} \
 ${PLINK} \
 --bfile ${FILEIN} \
 --not-chr 1-22 \
+--set-hh-missing \
 --make-bed \
 --out ${FILEIN}_sexchr
 
 ## merges the files back again
+## additional missingness filter to remove SNPs with
+## increased missingness in the two previous steps
 ${PLINK} \
 --bfile ${FILEIN}_autome \
 --bmerge ${FILEIN}_sexchr \
+--geno 0.02 \
 --make-bed \
 --out ${FILEIN}_maskedME
 
