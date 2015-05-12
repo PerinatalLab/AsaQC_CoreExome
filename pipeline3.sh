@@ -38,7 +38,7 @@ ${PLINK} \
 --bfile ${FILEIN}_autome \
 --bmerge ${FILEIN}_sexchr \
 --make-bed \
---out ${FILEIN}_removedME
+--out ${FILEIN}_maskedME
 
 #############################################
 ###### it is not possible to predict the strand of AT and CG SNPs,
@@ -46,13 +46,13 @@ ${PLINK} \
 
 # R script to generate a list of bad (AT or GC) SNPs from OUR DATA
 echo "Launching R script to generate no CG, no AT SNP list"
-./extract_AT.r ${FILEIN}_removedME.bim ./
+./extract_AT.r ${FILEIN}_maskedME.bim ./
 
 #  generate subset of only informative (no CG, AT) SNPs from OUR DATA
 echo "#########################"
 echo "extracting a subset of our data-no at, cg SNPs"
 ${PLINK} \
---bfile ${FILEIN}_removedME \
+--bfile ${FILEIN}_maskedME \
 --exclude bad_snps.txt \
 --make-bed \
 --out ${FILEIN}_atcgpruned
@@ -61,7 +61,7 @@ ${PLINK} \
 echo "#########################"
 echo "extracting a subset of our data-ONLY at, cg SNPs"
 ${PLINK} \
---bfile ${FILEIN}_FINAL_me \
+--bfile ${FILEIN}_maskedME \
 --extract bad_snps.txt \
 --make-bed \
 --out ${FILEIN}_atcgonly
