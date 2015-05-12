@@ -30,12 +30,12 @@ Output written to directory `r outDir`
 This is the main report encompassing these stages of analysis, starting from raw data:
 * General statistics of raw data
 * Temporary pre-QC filtering
-* Genotyped and indicated sex check
+* Genotyped and indicated sex check  
 These stages should end up in manual adjustment of .fam file (change of sex, family indications, removal of unsuitable individuals).
 
 # General statistics of raw data
 
-```{r fam_stats, echo=FALSE, cache=TRUE}
+```{r fam_stats, echo=FALSE}
 fam=read.table(paste(inFile,".fam",sep=''),h=F)
 bim=read.table(paste(inFile,".bim",sep=''),h=F)
 
@@ -65,6 +65,7 @@ The .bim file contains `r n_unq_snp` genotyped SNPs. They are distributed across
 
 ```{r chr_table, echo=FALSE}
 kable(t(table(bim$V1)),format="markdown")
+barplot(table(bim$V1), main="", xlab="Chromosome",ylab="Number of SNPs")
 ```
 
 
@@ -258,24 +259,22 @@ if (length(row_pat_sex_prob)>0){row_pat_sex_prob=fam[row_pat_sex_prob,]}
 if (length(row_mat_sex_prob)>0){row_mat_sex_prob=fam[row_mat_sex_prob,]}
 
 row_gen_sex_prob = which(statsI$pass_sex!=TRUE)
-print(row_gen_sex_prob)
-print(statsI[c(1,row_gen_sex_prob),])
 ```
 
 Based on **.fam file information only**, the following changes are suggested.  
 In the .fam file `r n_pat_sex_prob` fathers had gender set to non-male, `r n_mat_sex_prob` mothers had gender set to non-female.   The sex of these individuals should be set to male:  
-```{r echo=FALSE}
-`r row_pat_sex_prob`  
+```{r echo=FALSE, error=FALSE}
+if(length(row_pat_sex_prob>0)){row_pat_sex_prob}  
 ```
 
 The sex of these individuals should be set to female:  
-```{r echo=FALSE}
-`r row_mat_sex_prob`  
+```{r echo=FALSE, error=FALSE}
+if(length(row_mat_sex_prob>0)){row_mat_sex_prob}  
 ```
 
 Based on **genotyped sex chromosome SNPs**, these mismatches were found and should be resolved manually:  
-```{r table_sex, echo=FALSE}
-statsI[row_gen_sex_prob,1:7]
+```{r table_sex, echo=FALSE,error=FALSE}
+if(length(row_gen_sex_prob>0)){statsI[row_gen_sex_prob,1:7]}
 ```
 
 # Writing final output

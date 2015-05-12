@@ -1,8 +1,5 @@
 #!/bin/bash
 
-#HASH=`git log --pretty=format:'%h' -n 1`
-#FOLD=`ls -t ~/Desktop/QC | head -1`         # newest folder in output directory
-
 FILENAME=$1
 FILE_HIGHLD=~/soft/ref1000G/High-LD_genomic_regions.txt
 DIROUT=./PCA/${FILENAME}

@@ -33,6 +33,7 @@ ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                                     min=min(imis$F_MISS),
                                     max=max(imis$F_MISS,na.rm=T),
                                     value=(min(imis$F_MISS)+max(imis$F_MISS,na.rm=T))/2),
+                        HTML(paste("(default value is ",defaults[1],")",sep="")),
                         radioButtons("imiss_d", "Use value:", c("Default value"=TRUE,"Current value"=FALSE))
                       ),
                       mainPanel(plotOutput("plot1"))
@@ -45,6 +46,7 @@ ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                                     max=5.0,
                                     step=0.1,
                                     value=(0.0+5.0)/2),
+                        HTML(paste("(default value is ",defaults[2],")",sep="")),
                         radioButtons("het_d", "Use value:", c("Default value"=TRUE,"Current value"=FALSE))
                       ),
                       mainPanel(plotOutput("plot2"))  
@@ -56,6 +58,7 @@ ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                                           min=min(merrors$N,na.rm=T),
                                           max=max(merrors$N,na.rm=T),
                                           value=(min(merrors$N,na.rm=T)+max(merrors$N,na.rm=T))/2),
+                              HTML(paste("(default value is ",defaults[3],")",sep="")),
                               radioButtons("ime_d", "Use value:", c("Default value"=TRUE,"Current value"=FALSE))
                       ),
                       mainPanel(plotOutput("plot3"))  

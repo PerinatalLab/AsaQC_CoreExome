@@ -16,14 +16,14 @@ me_cutoff =as.numeric(cutoffs[4,])
 #cutoffFile = "./QC_snp_1/shiny_snp_cut.txt"
 #lmiss_cutoff= 0.02
 #maf_cutoff =0.1
-#hwe_cutoff = 0.0001
+#hwe_cutoff = 5
 #me_cutoff =10
 
 roundNumber=as.numeric(substr(outDir,nchar(outDir)-1,nchar(outDir)-1))
 ```
 
 
-Analysis report of QC SNP statistics
+Analysis report of QC SNP statistics, round `r roundNumber`
 ========================================================
 
 Report produced by J. Juodakis on **`r format(Sys.time(), "%F %R")`**
@@ -68,7 +68,7 @@ In this round of QC, statistics on **`r totalS` SNPs** were analyzed.
 
 ```{r do_tests, echo=FALSE}
 ## all the tests
-hwe_test=statsS$HWE_P>hwe_cutoff
+hwe_test=statsS$HWE_P>10^-hwe_cutoff
 statsS=cbind(statsS, hwe_test)
 freq_test=(statsS$MAF>maf_cutoff)
 statsS=cbind(statsS, freq_test)
@@ -102,7 +102,7 @@ abline(v=maf_cutoff, col="red")
 hist4=hist(-log(hweUNAFF$P,base=10), breaks=100,col="grey",main="HWE filter",ylab="SNPs",xlab="negative log of P-value of deviation from HWE")
 yc4=max(hist4$counts)/2
 xc4=mean(range(-log(hweUNAFF$P,base=10),na.rm=T))
-n_excl4=totalS-sum(hist4$counts[1:sum(hist4$breaks<=-log(hwe_cutoff,base=10))],na.rm=T)
+n_excl4=sum(hist4$counts)-sum(hist4$counts[1:sum(hist4$breaks<=hwe_cutoff)],na.rm=T)
 text(xc4,yc4,paste("selected for exclusion: ",n_excl4,sep="") )  
 text(xc4,yc4*1.2,paste("HWE cutoff:",hwe_cutoff))
 abline(v=-log(hwe_cutoff,base=10),col="red")
@@ -141,7 +141,7 @@ fail_chr = totalS-sum(as.numeric(statsS$CHR)<23, na.rm=T)
 Starting number of SNPs: `r totalS`  
 Number of SNPs passed all filters: `r snp_pass`  
 SNPs flagged by LMISS filter: `r fail_lmiss`  
-SNPs flagged by HWET filter: `r fail_hwe`  
+SNPs flagged by HWE filter: `r fail_hwe`  
 SNPs flagged by MAF filter: `r fail_maf`  
 SNPs flagged by MERR filter: `r fail_merr`  
 `r fail_chr` SNPs from non-autosomes were also removed.

@@ -133,7 +133,9 @@ Among the **`r sum(gnm$RT=="FS")`** declared **Full Sibling** pairs **`r dim(FS)
 Among the **`r sum(gnm$RT=="OT")`** declared **Other-Type** relationship pairs `r length(OT_unr)` were genetically Unrelated, `r length(OT_pof)` were Parent-Offspring pairs, `r length(OT_sib)` were Full Siblings, `r length(OT_mzt)` Monozygotic Twins, `r length(OT_hsb)` Half Siblings, `r length(OT_unk)` Unexplained, `r OT_n_overexpl` explanations were overlapping.
 
 
-```{r eval=FALSE}
+Please note that for downstream procedures (phasing and imputation) only Parent-offspring problems **must** be solved now. However, it is **very important** to take into account the violation of sample independence assumption in the GWAS analysis following QC/phasing/imputation: "other-type" relationships in this report ideally should be genetically unrelated, but it actually is not, thus exclusion step is required.
+
+```{r eval=FALSE, echo=FALSE}
 ## sitos lenteles dar neveikia
 ------
 ## Detailed list of explained conflicts

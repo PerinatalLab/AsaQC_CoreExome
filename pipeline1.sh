@@ -92,7 +92,7 @@ echo "Pruning complete."
 echo "################################"
 echo "Launching PLINK to calculate IBD statistics"
 ${PLINK} \
---bfile ./pre-QC/${FILENAME}_pruned \
+--bfile ./pre-QC/ibd/${FILENAME}_pruned \
 --genome \
 --out ./pre-QC/ibd/${FILENAME}_ibd-results
 echo "IBD statistics calculated."

@@ -18,7 +18,7 @@ hweP=-log(hweUNAFF$P,base=10)
 frq=read.table(paste(inFile,".frq",sep=""),h=T)
 merrors=read.table(paste(inFile,".lmendel",sep=""),h=T,stringsAsFactors=F)
 
-defaults=c(0.02,0.00001,0.1,10)
+defaults=c(0.02,5,0.1,10)
 
 ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                   div(class="row-fluid",
@@ -33,6 +33,7 @@ ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                                     min=min(lmis$F_MISS),
                                     max=max(lmis$F_MISS,na.rm=T),
                                     value=(min(lmis$F_MISS)+max(lmis$F_MISS,na.rm=T))/2),
+                        HTML(paste("(default value is ",defaults[1],")",sep="")),
                         radioButtons("lmiss_d", "Use value:", c("Default value"=TRUE,"Current value"=FALSE))
                       ),
                       mainPanel(plotOutput("plot1"))            
@@ -41,9 +42,10 @@ ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                       sidebarPanel(
                         sliderInput("maf_cutoff",
                                     "MAF cutoff:",
-                                    min=min(frq$MAF,na.rm=T),
+                                    min=0,
                                     max=max(frq$MAF,na.rm=T),
                                     value=(min(frq$MAF,na.rm=T)+max(frq$MAF,na.rm=T))/2),
+                        HTML(paste("(default value is ",defaults[3],")",sep="")),
                         radioButtons("maf_d", "Use value:", c("Default value"=TRUE,"Current value"=FALSE))
                       ),
                       mainPanel(plotOutput("plot2"))  
@@ -54,7 +56,8 @@ ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                                     "HWE cutoff:",
                                     min=min(hweP,na.rm=T),
                                     max=max(hweP,na.rm=T),
-                                    value=(min(hweP,na.rm=T)+max(hweP,na.rm=T))/2),
+                                    value=(min(hweP,na.rm=T)+max(hweP,na.rm=T))+1/2),
+                        HTML(paste("(default value is ",defaults[2],")",sep="")),
                         radioButtons("hwe_d", "Use value:", c("Default value"=TRUE,"Current value"=FALSE))
                       ),
                       mainPanel(plotOutput("plot3")) 
@@ -66,6 +69,7 @@ ui<-bootstrapPage(title="QC plots for cutoff adjustment",
                                           min=min(merrors$N,na.rm=T),
                                           max=max(merrors$N,na.rm=T),
                                           value=(min(merrors$N,na.rm=T)+max(merrors$N,na.rm=T))/2),
+                              HTML(paste("(default value is ",defaults[4],")",sep="")),
                               radioButtons("lme_d", "Use value:", c("Default value"=TRUE,"Current value"=FALSE))
                       ),
                       mainPanel(plotOutput("plot4"))  
