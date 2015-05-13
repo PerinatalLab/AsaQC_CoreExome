@@ -13,7 +13,7 @@ knit_hooks$set(webgl = hook_webgl)
 #inFile=args[1]
 #sampleFile=args[2]
 
-#inFile <- "./PCA2/data_clean.eigenvec"
+#inFile <- "./PCA/data_clean.eigenvec"
 #sampleFile <- "/home/julius/soft/ref1000G/ALL_1000G_phase1integrated_v3.sample"
 ```
 
@@ -32,8 +32,8 @@ Sample data obtained from file **`r sampleFile`**
 ev=read.table(inFile,h=F)
 sample=read.table(sampleFile,h=T)
 
-refs=ev[ev$V2==1,]
-ours=ev[ev$V2!=1,]
+refs=ev[grepl("ref",ev$V2),]
+ours=ev[!grepl("ref",ev$V2),]
 
 ones=rep("sample",dim(ours)[1])
 ours2=cbind(ours$V2,ours[,3:5],ones,ones)

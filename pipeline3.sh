@@ -1,48 +1,69 @@
 #!/bin/bash
+### final QC pipeline stages for error masking, strand flipping and PCA
+# USAGE: -o output_files_folder, [-f filestem], [-i another_date_hash]
 
-FILENAME=$1
+
+while getopts "o:f:i:" opt
+do
+	case $opt in
+		o) OUTROOT=${OPTARG};;
+		f) FILESTEM=${OPTARG};;
+		i) DATE_HASH=${OPTARG};;
+	esac
+done
+
+if [ $# -eq 0 ]; then
+	echo "No arguments provided - output directory (-o) is mandatory";
+	exit
+fi
+
+date="$(date +'%y%m%d')"
+hash="$(git --git-dir ~/Documents/gitrep/.git log --pretty=format:'%h' -n 1)"
+DATE_HASH=${DATE_HASH:-"${date}_${hash}/"}
+
+OUTDIR=${OUTROOT}${DATE_HASH}
+FILESTEM=${FILESTEM:-"data"}
+FILENAME=${OUTDIR}${FILESTEM}
+
+HAPFILE=~/soft/ref1000G/binaryNEW/allChr
+HAPDIR=~/soft/ref1000G/binaryNEW/
+HAP_SAMPLE=~/soft/ref1000G/ALL_1000G_phase1integrated_v3.sample
 FILE_HIGHLD=~/soft/ref1000G/High-LD_genomic_regions.txt
-DIROUT=./PCA/${FILENAME}
-FILEIN=./QC_FINAL/${FILENAME}
-HAPFILE=~/soft/ref1000G/binary/allChr
-HAPDIR=~/soft/ref1000G/binary/
 
 PLINK=~/soft/plink/plink
 GCTA=~/soft/gcta/gcta64
 
-mkdir PCA/
-
-#### Note: this script produces some important files in the current folder
+mkdir ${OUTDIR}PCA/
 
 #############################################
 ### Mendelian errors on autosomes only have to be replaced with missing calls
 
 ## separate autosomes and replace merrors with missing
 ${PLINK} \
---bfile ${FILEIN}_filtered \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_filtered \
 --autosome \
 --mendel-duos \
 --set-me-missing \
 --make-bed \
---out ${FILEIN}_autome
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_autome
 
 ## separate sex chromosomes
 ${PLINK} \
---bfile ${FILEIN} \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_filtered \
 --not-chr 1-22 \
 --set-hh-missing \
 --make-bed \
---out ${FILEIN}_sexchr
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_sexchr
 
 ## merges the files back again
 ## additional missingness filter to remove SNPs with
 ## increased missingness in the two previous steps
 ${PLINK} \
---bfile ${FILEIN}_autome \
---bmerge ${FILEIN}_sexchr \
---geno 0.02 \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_autome \
+--bmerge ${OUTDIR}QC_FINAL/${FILESTEM}_sexchr \
+--geno 0.04 \
 --make-bed \
---out ${FILEIN}_maskedME
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_maskedME
 
 #############################################
 ###### it is not possible to predict the strand of AT and CG SNPs,
@@ -50,25 +71,25 @@ ${PLINK} \
 
 # R script to generate a list of bad (AT or GC) SNPs from OUR DATA
 echo "Launching R script to generate no CG, no AT SNP list"
-./extract_AT.r ${FILEIN}_maskedME.bim ./
+./extract_AT.r ${OUTDIR}QC_FINAL/${FILESTEM}_maskedME.bim ${OUTDIR}
 
 #  generate subset of only informative (no CG, AT) SNPs from OUR DATA
 echo "#########################"
 echo "extracting a subset of our data-no at, cg SNPs"
 ${PLINK} \
---bfile ${FILEIN}_maskedME \
---exclude bad_snps.txt \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_maskedME \
+--exclude ${OUTDIR}bad_snps.txt \
 --make-bed \
---out ${FILEIN}_atcgpruned
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_atcgpruned
 
 #  generate subset of non-informative (only CG, AT) SNPs from OUR DATA
 echo "#########################"
 echo "extracting a subset of our data-ONLY at, cg SNPs"
 ${PLINK} \
---bfile ${FILEIN}_maskedME \
---extract bad_snps.txt \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_maskedME \
+--extract ${OUTDIR}bad_snps.txt \
 --make-bed \
---out ${FILEIN}_atcgonly
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_atcgonly
 
 ### same with 1000G - optional, but suggested
 
@@ -101,38 +122,35 @@ ${PLINK} \
 echo "#########################"
 echo "trial merge to generate a to-flip-strand list"
 ${PLINK} \
---bfile ${FILEIN}_atcgpruned \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_atcgpruned \
 --bmerge ${HAPFILE}_atcgpruned \
---out ${FILEIN}_toflip
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_toflip
 
 # actual flipping of SNPs
 echo "#########################"
 echo "flipping SNPs"
 ${PLINK} \
---bfile ${FILEIN}_atcgpruned \
---flip ${FILEIN}_toflip.missnp \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_atcgpruned \
+--flip ${OUTDIR}QC_FINAL/${FILESTEM}_toflip.missnp \
 --make-bed \
---out ${FILEIN}_flipped
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_flipped
 
-
-###### is this second round needed? this solved some 700 more SNPs for me
-###### if not, the output folder above should be set to ./
 # removing snps that still don't merge
 echo "#########################"
-echo "trial merge to generate a to-flip-strand list"
+echo "trial merge to generate a to-exclude list"
 ${PLINK} \
---bfile ${FILEIN}_flipped \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_flipped \
 --bmerge ${HAPFILE}_atcgpruned \
---out ${FILEIN}_toflip2
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_toflip2
 
 ## here, final file for imputation is produced in ./
 echo "#########################"
 echo "removing SNPs that failed to merge"
 ${PLINK} \
---bfile ${FILEIN}_flipped \
---exclude ${FILEIN}_toflip2.missnp \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_flipped \
+--exclude ${OUTDIR}QC_FINAL/${FILESTEM}_toflip2.missnp \
 --make-bed \
---out ${FILENAME}_flipped2
+--out ${OUTDIR}${FILESTEM}_FINAL_${date}_${hash}
 
 
 #########################################
@@ -142,11 +160,11 @@ ${PLINK} \
 echo "#########################"
 echo "final merging with HapMap3"
 ${PLINK} \
---bfile ${FILENAME}_flipped2 \
+--bfile ${OUTDIR}${FILESTEM}_FINAL_${date}_${hash} \
 --bmerge ${HAPFILE}_atcgpruned \
 --allow-no-sex \
 --make-bed \
---out ${DIROUT}_merged
+--out ${OUTDIR}PCA/${FILESTEM}_merged
 echo "Merging complete."
 
 # remove SNPs which were genotyped in only one population (required for PCA)
@@ -154,56 +172,56 @@ echo "Merging complete."
 echo "########################"
 echo "removing alleles present in only one population"
 ${PLINK} \
---bfile ${DIROUT}_merged \
+--bfile ${OUTDIR}PCA/${FILESTEM}_merged \
 --geno 0.1 \
 --make-bed \
---out ${DIROUT}_merged2
+--out ${OUTDIR}PCA/${FILESTEM}_merged2
 echo "Merging complete."
 
 # plink to calculate correlation and prune
 echo "#########################"
 echo "calculating correlation"
 ${PLINK} \
---bfile ${DIROUT}_merged2 \
+--bfile ${OUTDIR}PCA/${FILESTEM}_merged2 \
 --indep-pairwise 100 25 0.2 \
---out ${DIROUT}_correlated
+--out ${OUTDIR}PCA/${FILESTEM}_correlated
 
 echo "#########################"
 echo "pruning correlated snps"
 ${PLINK} \
---bfile ${DIROUT}_merged2 \
---extract ${DIROUT}_correlated.prune.in \
+--bfile ${OUTDIR}PCA/${FILESTEM}_merged2 \
+--extract ${OUTDIR}PCA/${FILESTEM}_correlated.prune.in \
 --make-bed \
---out ${DIROUT}_pruned
+--out ${OUTDIR}PCA/${FILESTEM}_pruned
 
 # plink to prune high LD regions
 echo "#########################"
 echo "pruning high LD regions"
 ${PLINK} \
---bfile ${DIROUT}_pruned \
+--bfile ${OUTDIR}PCA/${FILESTEM}_pruned \
 --exclude range ${FILE_HIGHLD} \
 --make-bed \
---out ${DIROUT}_prunedLD
+--out ${OUTDIR}PCA/${FILESTEM}_prunedLD
 echo "All pruning complete."
 
 ## actual PCA
 ## galbut PCA reiktu naudoti tik founderius???
 ${GCTA} \
---bfile ${DIROUT}_prunedLD \
+--bfile ${OUTDIR}PCA/${FILESTEM}_prunedLD \
 --autosome \
 --make-grm \
---out ${DIROUT} \
+--out ${OUTDIR}PCA/${FILESTEM} \
 --thread-num 6
 
 ${GCTA} \
---grm ${DIROUT} \
+--grm ${OUTDIR}PCA/${FILESTEM} \
 --pca \
---out ${DIROUT} \
+--out ${OUTDIR}PCA/${FILESTEM} \
 --thread-num 6
 
 ##  R script for PCA analysis
 echo "##########################"
 echo "Launching R script for visualizing PCA results"
-Rscript -e "inFile='${DIROUT}.eigenvec'; sampleFile='~/soft/ref1000G/ALL_1000G_phase1integrated_v3.sample'; \
-library(knitr); knit2html('report_PCA_merged.Rmd', output='./PCA/report_PCA_merged.html')"
+Rscript -e "inFile='${OUTDIR}PCA/${FILESTEM}.eigenvec'; sampleFile='${HAP_SAMPLE}'; \
+library(knitr); knit2html('report_PCA_merged.Rmd', output='${OUTDIR}report_PCA_merged.html')"
 echo "PCA result analysis complete."
