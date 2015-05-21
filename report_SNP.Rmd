@@ -124,9 +124,11 @@ abline(v=me_cutoff, col="red")
 ```{r echo=FALSE}
 ### final filter
 ffS=(statsS$pass_hwe==TRUE)&(statsS$pass_freq==TRUE)&(statsS$pass_lmiss==TRUE)&(statsS$pass_mendel==TRUE)
+lowMAF=(statsS$pass_hwe==TRUE)&(statsS$pass_freq==FALSE)&(statsS$pass_lmiss==TRUE)&(statsS$pass_mendel==TRUE)
 statsS=cbind(statsS, ffS)
 
 selectedS=statsS[which(statsS$ffS),1]
+selectedMAF=statsS[lowMAF,1]
 
 snp_pass = sum(ffS, na.rm=T)
 fail_lmiss = sum(statsS$pass_lmiss!=TRUE)
@@ -153,4 +155,5 @@ Final output will now be written to directory `r outDir`. File *full-stats* cont
 ```{r final_out, echo=FALSE}
 write.table(statsS, file=paste(outDir,"full-statsS.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=T)
 write.table(selectedS, file=paste(outDir,"selectedS.txt",sep=""), quote=F, sep="\t",row.names=F, col.names=F)
+write.table(selectedMAF, file=paste(outDir,"lowMAF",roundNumber,".txt",sep=""), quote=F, sep="\t",row.names=F, col.names=F)
 ```

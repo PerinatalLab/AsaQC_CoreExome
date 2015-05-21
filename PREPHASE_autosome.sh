@@ -19,7 +19,7 @@ ${REFDIR}ALL_1000G_phase1integrated_v3.sample \
 --input-map ${REFDIR}genetic_map_chr${CHR}_combined_b37.txt
 
 ## this step might need additional pipeing through uniq
-cut -f 4 ${OUTDIR}_chr${CHR}.snp.strand > ${OUTDIR}_chr${CHR}_toFlip
+cut -f 4 ${OUTDIR}_chr${CHR}.snp.strand | uniq > ${OUTDIR}_chr${CHR}_toFlip
 
 ${PLINK} \
 --bfile ${FILEIN}_${CHR} \

@@ -52,7 +52,6 @@ ${REFDIR}ALL_1000G_phase1integrated_v3.sample \
 --prune 10 \
 --main 50 \
 --window 5 \
---duohmm \
 --effective-size 11418 \
 --exclude-snp ${OUTDIR}_chr${CHR}.snp.strand.exclude \
 --output-max ${OUTDIR}_chr${CHR}.prephased.haps.gz ${OUTDIR}_chr${CHR}.sample \

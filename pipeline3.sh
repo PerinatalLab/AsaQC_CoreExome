@@ -1,7 +1,6 @@
 #!/bin/bash
-### final QC pipeline stages for error masking, strand flipping and PCA
-# USAGE: -o output_files_folder, [-f filestem], [-i another_date_hash]
-
+## USAGE: ./split-chr.sh -o output_files_folder, [-f filestem], [-i another_date_hash]
+## as of now, same filestem is used for input and output
 
 while getopts "o:f:i:" opt
 do
@@ -11,11 +10,6 @@ do
 		i) DATE_HASH=${OPTARG};;
 	esac
 done
-
-if [ $# -eq 0 ]; then
-	echo "No arguments provided - output directory (-o) is mandatory";
-	exit
-fi
 
 date="$(date +'%y%m%d')"
 hash="$(git --git-dir ~/Documents/gitrep/.git log --pretty=format:'%h' -n 1)"

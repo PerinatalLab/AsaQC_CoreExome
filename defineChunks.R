@@ -1,3 +1,8 @@
+#!/usr/bin/Rscript
+
+#args=commandArgs(TRUE)
+#inFile=args[1]
+inFile="~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipeline/PCA2/data_clean_onlyCommon"
 
 ####################################################################
 # This procedure is necessary, since Impute2 requires chromosomes to be fed in chunks,
@@ -16,26 +21,26 @@
 
 
 
-
 ###############################################################
 # 1)  FIND WHAT POSITION IS THE HIGHEST FOR EACH CHROMOSOME
 dat=data.frame(chr=seq(23),max=NA)
       # autosomes
-for (i in 1:22) {
-print(i)
-nam=paste("~/Desktop/1000G/ALL_1000G_phase1integrated_v3_chr",i,"_impute.legend.gz",sep="")
-fil=read.table(gzfile(nam),header=T, sep=" ", colClasses=c("NULL","numeric",rep("NULL",10)))
-dat[i,"max"]=max(fil$position)
+for (i in 1:23) {
+        print(i)
+        nam=paste("~/soft/ref1000G/binary/",i,"taken.legend",sep="")
+        fil=read.table(nam,header=F, sep=" ", colClasses=c("NULL","numeric",rep("NULL",10)))
+        dat[i,"max"]=max(fil$V2)
 }
+
       # chromosome X
-nam="~/Desktop/1000G/ALL_1000G_phase1integrated_v3_chrX_nonPAR_impute.legend.gz"
-fil=read.table(gzfile(nam),header=T, sep=" ", colClasses=c("NULL","numeric",rep("NULL",10)))
-dat[23,"max"]=max(fil$position)
+#nam="~/soft/ref1000G/ALL_1000G_phase1integrated_v3_chrX_nonPAR_impute.legend.gz"
+#fil=read.table(gzfile(nam),header=T, sep=" ", colClasses=c("NULL","numeric",rep("NULL",10)))
+#dat[23,"max"]=max(fil$position)
 
 
 ##############################################################
 # 2) READ the SNP map
-bim=read.table("/home/jonas/Desktop/ASA/NEW/uppsala_new6_140831.bim")
+bim=read.table(paste(inFile,".bim",sep=""))
 
 
 ##############################################################
@@ -43,15 +48,15 @@ bim=read.table("/home/jonas/Desktop/ASA/NEW/uppsala_new6_140831.bim")
 
 par(mfrow=c(4,1))
 for (chr in 1:23) {
-  plot(NA,xlim=c(0,max(bim[bim$V1==chr,4])),ylim=c(0,1),xaxt="n",yaxt="n",main=chr)
-  segments(x0= bim[bim$V1==chr,4], x1=   bim[bim$V1==chr,4], y0=0,y1=0.7)
-mn= min(bim[bim$V1==chr,4])
-mn=ifelse( (mn-2e6)<=0 , 0 , (mn-2e6) )  # prevent negative values
-mx= max(bim[bim$V1==chr,4])
-mx=ifelse(  abs(dat[dat$chr==chr,"max"]-mx)>2e6  , (mx+2e6), dat[dat$chr==chr,"max"] )
-pnts=seq(mn,mx,by= (mx-mn)/floor((mx-mn)/6e6)) 
-points(pnts,rep(0.8,length(pnts)),pch=19,col="red")
-abline(v=c(mn,mx))
+        plot(NA,xlim=c(0,max(bim[bim$V1==chr,4])),ylim=c(0,1),xaxt="n",yaxt="n",main=chr)
+        segments(x0= bim[bim$V1==chr,4], x1=   bim[bim$V1==chr,4], y0=0,y1=0.7)
+        mn= min(bim[bim$V1==chr,4])
+        mn=ifelse( (mn-2e6)<=0 , 0 , (mn-2e6) )  # prevent negative values
+        mx= max(bim[bim$V1==chr,4])
+        mx=ifelse(  abs(dat[dat$chr==chr,"max"]-mx)>2e6  , (mx+2e6), dat[dat$chr==chr,"max"] )
+        pnts=seq(mn,mx,by= (mx-mn)/floor((mx-mn)/6e6)) 
+        points(pnts,rep(0.8,length(pnts)),pch=19,col="red")
+        abline(v=c(mn,mx))
 }
 
 ###############################################################
@@ -120,6 +125,30 @@ points(pnts2,rep(0.77,length(pnts2)),pch=19,col="red")
 pnts=sort(unique(c(pnts1,pnts2)))
 pnts=c(pnts,rep(NA,50-length(pnts)))
 m[chr,]=pnts
+
+##############################  chr4
+par(mfrow=c(1,1))
+chr=4
+plot(NA,xlim=c(0,max(bim[bim$V1==chr,4])),ylim=c(0,1),yaxt="n",main=chr)
+segments(x0= bim[bim$V1==chr,4], x1=   bim[bim$V1==chr,4], y0=0,y1=0.7)
+mn= min(bim[bim$V1==chr,4])
+mn=ifelse( (mn-2e6)<=0 , 0 , (mn-2e6) )  # prevent negative values
+mx= max(bim[bim$V1==chr,4])
+mx=ifelse(  abs(dat[dat$chr==chr,"max"]-mx)>2e6  , (mx+2e6), dat[dat$chr==chr,"max"] )
+pnts=seq(mn,mx,by= (mx-mn)/floor((mx-mn)/6e6)) 
+points(pnts,rep(0.8,length(pnts)),pch=19,col="red")
+
+mid=0.513e8
+abline(v=mid,col="red")
+
+pnts1=seq(mn,mid,by=(mid-mn)/floor((mid-mn)/6e6)) 
+points(pnts1,rep(0.77,length(pnts1)),pch=19,col="red")
+pnts2=seq(mid,mx,by=(mx-mid)/floor((mx-mid)/6e6)) 
+points(pnts2,rep(0.77,length(pnts2)),pch=19,col="red")
+pnts=sort(unique(c(pnts1,pnts2)))
+pnts=c(pnts,rep(NA,50-length(pnts)))
+m[chr,]=pnts
+
 
 ##############################  chr7
 par(mfrow=c(1,1))
@@ -272,6 +301,32 @@ pnts=c(pnts,rep(NA,50-length(pnts)))
 m[chr,]=pnts
 
 
+##############################  chr18
+chr=18
+plot(NA,xlim=c(0,max(bim[bim$V1==chr,4])),ylim=c(0,1),yaxt="n",main=chr)
+segments(x0= bim[bim$V1==chr,4], x1=   bim[bim$V1==chr,4], y0=0,y1=0.7)
+mn= min(bim[bim$V1==chr,4])
+mn=ifelse( (mn-2e6)<=0 , 0 , (mn-2e6) )  # prevent negative values
+mx= max(bim[bim$V1==chr,4])
+mx=ifelse(  abs(dat[dat$chr==chr,"max"]-mx)>2e6  , (mx+2e6), dat[dat$chr==chr,"max"] )
+pnts=seq(mn,mx,by= (mx-mn)/floor((mx-mn)/6e6)) 
+points(pnts,rep(0.8,length(pnts)),pch=19,col="red")
+
+mid=1.7e7
+pos=bim[bim$V1==chr,4]
+lft=max(pos[pos<mid])
+rgh=min(pos[pos>mid])
+lft=ifelse( (lft+2e6)<rgh , lft+1e6 , lft+.5e6 )  # prevent negative values
+rgh=ifelse( (rgh-2e6)>lft , rgh-1e6 , lft-.5e6 )  # prevent negative values
+abline(v=c(lft,rgh),col="red")
+
+pnts1=seq(mn,lft,by= (lft-mn)/floor((lft-mn)/6e6)) 
+pnts2=seq(rgh,mx,by= (mx-rgh)/floor((mx-rgh)/6e6)) 
+pnts=unique(c(pnts1,pnts2))
+points(pnts,rep(0.75,length(pnts)),pch=19,col="red")
+pnts=c(pnts,rep(NA,50-length(pnts)))
+m[chr,]=pnts
+
 
 ##############################  chr20
 par(mfrow=c(1,1))
@@ -342,25 +397,13 @@ m[chr,]=pnts
 
 
 # explore each chromosome and visually check whether chunking was successful
-# uppsala
-bim=read.table("/home/jonas/Desktop/ASA/NEW/uppsala_new6_140831.bim")
+
 par(mfrow=c(4,1))
 for (chr in 1:23) {
   plot(NA,xlim=c(0,max(bim[bim$V1==chr,4])),ylim=c(0,1),xaxt="n",yaxt="n",main=chr)
   segments(x0= bim[bim$V1==chr,4], x1=   bim[bim$V1==chr,4], y0=0,y1=0.8)
   points(m[chr,],rep(0.9,length(pnts)),pch=19,col="red")
-  }
-
-# is this map also useful for different (12347) file?
-bim=read.table("/home/jonas/Desktop/ASA/NEW/12347_new6_140831.bim")
-mx=max(bim$V4)
-par(mfrow=c(8,1))
-for (chr in 1:23) {
-  plot(NA,xlim=c(0,mx),ylim=c(0,1),xaxt="n",yaxt="n",xlab=NA,ylab=chr)
-  segments(x0= bim[bim$V1==chr,4], x1=   bim[bim$V1==chr,4], y0=0,y1=0.5)
-  points(m[chr,],rep(0.5,length(pnts)),pch=19,col="red")
 }
-
 
 
 ###############################################################
@@ -379,9 +422,6 @@ for (chr in 1:23) {
   CHUNKS=rbind(CHUNKS,chunks)
 }
 
-dim(CHUNKS)
-tail(CHUNKS)  
-
 
 ###############################################################
 #  6) CLEAN THE CHUNK LIST (from empty chunks)
@@ -391,29 +431,28 @@ for (i in 1:dim(CHUNKS)[1]) {
   ch=CHUNKS[i,]
   pos=bim[bim$V1==ch$chr,"V4"]
   if (sum((pos>ch$left)&(pos<ch$right))==0) {CHUNKS[i,]=NA}
-  }
+}
 
 CHUNKS=CHUNKS[ !is.na(CHUNKS$left),]
 dim(CHUNKS)
 options("scipen"=100,digits=10)
-write.table(CHUNKS,"/home/jonas/Dropbox/GIT/ASA/7.1_Asa_pso_chunks_464.txt",
+write.table(CHUNKS,"./prephased/chunks_output.txt",
             row.names=F,col.names=T,quote=F,sep="\t")
 
 dim(CHUNKS)
 
 ###############################################################
 #  6) PREPARE THE VISUAL MAP OF CHUNKS
-bim=read.table("/home/jonas/Desktop/ASA/NEW/12347_new6_140831.bim")
 mx=max(bim$V4)
-jpeg("7.1_Asa_pso_chunk-map.jpeg",width=30,height=20,units="cm",res=300)
+jpeg("./prephased/chunk_map.jpeg",width=30,height=20,units="cm",res=300)
 par(mfrow=c(23,1), mar=c(0, 4, 0, 1) + 0.1)
 for (chr in 1:23) {
   plot(NA,xlim=c(0,mx),ylim=c(0,1),xaxt="n",yaxt="n",xlab=NA,ylab=chr)
   segments(x0= bim[bim$V1==chr,4], x1=   bim[bim$V1==chr,4], y0=0,y1=0.5)
   points(m[chr,],rep(0.5,length(pnts)),pch=19,col="red")
-  texdat=data.frame(chunks,sq=seq(dim(chunks)[1]),mid=as.numeric(apply(chunks[,2:3],1,mean)))
+  texdat=data.frame(CHUNKS,sq=seq(dim(CHUNKS)[1]),mid=as.numeric(apply(CHUNKS[,2:3],1,mean)))
   sub=texdat[texdat$chr==chr,]
   text(x=sub$mid,y=rep(0.75,dim(sub)[1]),labels=sub$sq)
-  }
+}
 dev.off()
 

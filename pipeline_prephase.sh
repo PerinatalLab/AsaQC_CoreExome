@@ -22,15 +22,14 @@ DATE_HASH=${DATE_HASH:-"${date}_${hash}/"}
 
 OUTDIR=${OUTROOT}${DATE_HASH}
 FILESTEM=${FILESTEM:-"data"}
-FILENAME=${OUTDIR}${FILESTEM}
 
 PLINK=~/soft/plink/plink
 SHAPEIT=~/soft/shapeit/shapeit
 
-FILEIN=${OUTDIR}${FILESTEM}_flipped2
+FILEIN=${OUTDIR}${FILESTEM}_FINAL_${date}_${hash}
 FILEOUT=${OUTDIR}split_chr/${FILESTEM}
 REFDIR=~/soft/ref1000G/
-OUTDIR=${OUTDIR}prephased/${FILESTEM}
+
 
 mkdir ${OUTDIR}split_chr/
 mkdir ${OUTDIR}prephased/
@@ -59,14 +58,15 @@ done
 for chrom in {1..22}
 do
 	echo "Prephasing chromosome "${chrom}
-	./PREPHASE_autosome.sh ${chrom} ${FILEOUT} ${REFDIR} ${OUTDIR}${FILESTEM} ${SHAPEIT} ${PLINK}
+	./PREPHASE_autosome.sh ${chrom} ${FILEOUT} ${REFDIR} ${OUTDIR}prephased/${FILESTEM} ${SHAPEIT} ${PLINK}
 done
 
 
 # for X chromosome
 chrom=23
 echo "Prephasing chromosome "${chrom}
-./PREPHASE_Xchr.sh ${chrom} ${FILEOUT} ${REFDIR} ${OUTDIR}${FILESTEM} ${SHAPEIT} ${PLINK}
+./PREPHASE_Xchr.sh ${chrom} ${FILEOUT} ${REFDIR} ${OUTDIR}prephased/${FILESTEM} ${SHAPEIT} ${PLINK}
 
-
+####
+echo "Prephasing complete. Now please run defineChunks.R, manually adjust the chunks and proceed to pipeline_impute.R."
 

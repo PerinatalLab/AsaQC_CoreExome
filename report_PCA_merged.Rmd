@@ -15,6 +15,8 @@ knit_hooks$set(webgl = hook_webgl)
 
 #inFile <- "./PCA/data_clean.eigenvec"
 #sampleFile <- "/home/julius/soft/ref1000G/ALL_1000G_phase1integrated_v3.sample"
+
+SDcutoff=5
 ```
 
 Report on PCA of merged reference and sample data
@@ -61,13 +63,15 @@ sdeucl=sd(eucl2)
 
 euclmusu=sqrt((ours2$p1-mean(sube2))^2+(ours2$p2-mean(sube3))^2+(ours2$p3-mean(sube4))^2)
 oursE=cbind(ours2,euclmusu)
-oursBad=oursE[oursE$euclmusu>3*sdeucl,]
+oursBad=oursE[oursE$euclmusu>SDcutoff*sdeucl,]
 ```
 
 ## Significant outliers
 
 For outlier detection, Euclidean distance of each sample from the EUR group center of mass is calculated. Distribution of this distance is presented in further below.  
-An SD value was calculated after mirroring this distribution around x=0, and 3*SD is used as a cutoff. Individuals whose distances exceed this cutoff are listed in the table below.
+An SD value was calculated after mirroring this distribution around x=0, and `r SDcutoff` x SD is used as a cutoff. Individuals whose distances exceed this cutoff are listed in the table below.  
+SD of Euclidean distance: **`r sdeucl`**  
+Cutoff: **`r SDcutoff*sdeucl`**  
 
 ```{r EuclData, echo=FALSE}
 kable(oursBad[,c(1:4,7)],format="markdown")
@@ -83,15 +87,20 @@ Colors reflect different groups or populations of the reference genome.
 ```{r flat_plots, echo=FALSE}
 tinkami=all[(all$group=="EUR"),]
 musu=all[(all$group=="sample"),]
+ref=all[(all$group!="sample"),]
 
-ggplot(all, aes(x=p1, y=p2, color=group))+geom_point(size=3)+ggtitle("p1 vs p2")
-ggplot(all, aes(x=p1, y=p3, color=group))+geom_point(size=3)+ggtitle("p1 vs p3")
-ggplot(all, aes(x=p2, y=p3, color=group))+geom_point(size=2)+ggtitle("p2 vs p3")
+ggplot()+geom_point(data=ref,aes(x=p1, y=p2, color=group),size=3)+geom_point(data=musu,aes(x=p1, y=p2, color=group),size=3)+
+        geom_point(data=oursBad,aes(x=p1, y=p2), color="black",shape=3,size=3)+ggtitle("p1 vs p2")
+ggplot()+geom_point(data=ref,aes(x=p1, y=p3, color=group),size=3)+geom_point(data=musu,aes(x=p1, y=p3, color=group),size=3)+
+        geom_point(data=oursBad,aes(x=p1, y=p3), color="black",shape=3,size=3)+ggtitle("p1 vs p3")
+ggplot()+geom_point(data=ref,aes(x=p2, y=p3, color=group),size=3)+geom_point(data=musu,aes(x=p2, y=p3, color=group),size=3)+
+        geom_point(data=oursBad,aes(x=p2, y=p3), color="black",shape=3,size=3)+ggtitle("p2 vs p3")
 
-ggplot(all, aes(x=p1, y=p2, color=population))+geom_point(size=2)+ggtitle("p1 vs p2 on POPULATIONS")
+ggplot()+geom_point(data=ref,aes(x=p1, y=p2, color=population),size=2)+geom_point(data=musu,aes(x=p1, y=p2, color=population),size=2)+
+        geom_point(data=oursBad,aes(x=p1, y=p2), color="black",shape=3,size=2)+ggtitle("p1 vs p2 on POPULATIONS")
 ```
 
-The plots below show the projections of the points along the first 2 principal components. *Ellipses* show the region between 5-95 percentiles of the data, assuming t or normal distributions. *Circles* show the region of 3 SD of Euclidean distance (assuming mirrored distribution) or 3 times geometrical average of SD along each principal component.  
+The plots below show the projections of the points along the first 2 principal components. *Ellipses* show the region between 5-95 percentiles of the data, assuming t or normal distributions. *Circles* show the region of `r SDcutoff` SD of Euclidean distance (assuming mirrored distribution) or `r SDcutoff` times geometrical average of SD along each principal component.  
 SD of Euclidean distance: **`r sdeucl`**  
 Geometrical average of SD along each PC: **`r sde`**  
 
@@ -102,10 +111,10 @@ ggplot(all, aes(x=p1, y=p2, color=group))+geom_point(size=2)+stat_ellipse(data=t
         ggtitle("p1 v p2 + normal distribution 5-95 %")
 
 ggplot(all, aes(x=p1, y=p2, color=group,label=iid))+geom_point(size=2)+
-        stat_ellipse(data=all[all$group=="EUR",], type="euclid",level=3*sdeucl)+
+        stat_ellipse(data=all[all$group=="EUR",], type="euclid",level=SDcutoff*sdeucl)+
         ggtitle("p1 v p2 + 3 SDs of euclidean distance")
 ggplot(all, aes(x=p1, y=p2, color=group,label=iid))+geom_point(size=2)+
-        stat_ellipse(data=all[all$group=="EUR",], type="euclid",level=3*sde)+
+        stat_ellipse(data=all[all$group=="EUR",], type="euclid",level=SDcutoff*sde)+
         ggtitle("p1 v p2 + 3x geom. averaged SD")
 ```
 
@@ -127,7 +136,7 @@ par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
 view3d(theta=0,phi=-45)
 
 grid3d(c("x","y","z"))
-spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=SDcutoff*sdeucl,front="line",back="line",alpha=0.5)
 segments3d(xai,yai,zai)
 ```
 
@@ -137,7 +146,7 @@ par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
 view3d(theta=-60,phi=0)
 
 grid3d(c("x","y","z"))
-spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=SDcutoff*sdeucl,front="line",back="line",alpha=0.5)
 segments3d(xai,yai,zai)
 ```
 
@@ -147,7 +156,7 @@ par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
 view3d(theta=30,phi=0)
 
 grid3d(c("x","y","z"))
-spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=SDcutoff*sdeucl,front="line",back="line",alpha=0.5)
 segments3d(xai,yai,zai)
 ```
 
@@ -157,7 +166,7 @@ par3d(scale=c(1,1,1), windowRect=c(200,200,800,800))
 view3d(theta=90,phi=60)
 
 grid3d(c("x","y","z"))
-spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=3*sdeucl,front="line",back="line",alpha=0.5)
+spheres3d(mean(sube2),y=mean(sube3),z=mean(sube4),radius=SDcutoff*sdeucl,front="line",back="line",alpha=0.5)
 segments3d(xai,yai,zai)
 ```
 

@@ -33,10 +33,6 @@ PLINK=~/soft/plink/plink
 GCTA=~/soft/gcta/gcta64
 FILE_HIGHLD=~/soft/ref1000G/High-LD_genomic_regions.txt
 
-echo "filename ${FILENAME}"
-echo "params ${GENERATE_CUTOFF}"
-
-exit
 
 ############### ROUND 1
 # plink to make stats
@@ -213,6 +209,16 @@ echo "SNP QC round 2 stats analysis complete."
 
 
 mkdir ${OUTDIR}QC_FINAL/
+# plink to separate alleles of low MAF, but otherwise good quality
+echo "################################"
+echo "Launching PLINK to store alleles of low MAF"
+cat ${OUTDIR}QC_snp_1/lowMAF1.txt >> ${OUTDIR}QC_snp_2/lowMAF2.txt
+${PLINK} \
+--bfile ${FILENAME} \
+--extract ${OUTDIR}QC_snp_2/lowMAF2.txt \
+--make-bed \
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF
+
 # plink to extract SNPs
 echo "################################"
 echo "Launching PLINK to filter SNPs for the final output"
@@ -223,4 +229,5 @@ ${PLINK} \
 --out ${OUTDIR}QC_FINAL/${FILESTEM}_filtered
 echo "QC filtering complete."
 echo "Review the results and run pipeline3.sh"
+
 
