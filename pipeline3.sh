@@ -27,7 +27,10 @@ FILE_HIGHLD=~/soft/ref1000G/High-LD_genomic_regions.txt
 PLINK=~/soft/plink/plink
 GCTA=~/soft/gcta/gcta64
 
+mkdir ${OUTDIR}
 mkdir ${OUTDIR}PCA/
+
+
 
 #############################################
 ### Mendelian errors on autosomes only have to be replaced with missing calls
@@ -93,7 +96,7 @@ echo "Launching R script to generate no CG, no AT SNP list"
 
 #  generate subset of only informative (no CG, AT) SNPs from 1000G
 echo "#########################"
-echo "extracting a subset of our data-no at, cg SNPs"
+echo "extracting a subset of reference data-no at, cg SNPs"
 ${PLINK} \
 --bfile ${HAPFILE} \
 --exclude ${HAPDIR}bad_snps.txt \
@@ -102,7 +105,7 @@ ${PLINK} \
 
 #  generate subset of non-informative (only CG, AT) SNPs from 1000G
 echo "#########################"
-echo "extracting a subset of our data-ONLY at, cg SNPs"
+echo "extracting a subset of reference data-ONLY at, cg SNPs"
 ${PLINK} \
 --bfile ${HAPFILE} \
 --extract ${HAPDIR}bad_snps.txt \
@@ -219,3 +222,4 @@ echo "Launching R script for visualizing PCA results"
 Rscript -e "inFile='${OUTDIR}PCA/${FILESTEM}.eigenvec'; sampleFile='${HAP_SAMPLE}'; \
 library(knitr); knit2html('report_PCA_merged.Rmd', output='${OUTDIR}report_PCA_merged.html')"
 echo "PCA result analysis complete."
+echo "Please review the results and proceed to pipeline_prephase.sh."

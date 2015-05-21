@@ -4,58 +4,30 @@
 GTOOL=~/soft/gtool2/gtool
 PLINK=~/soft/plink/plink
 
-OUTDIR=./150520_9d598c5/processed/
-INDIR=./150520_9d598c5/imputed/
+OUTROOT=./150521_254cd8f/
+OUTDIR=${OUTROOT}processed/
+INDIR=${OUTROOT}imputed/
+FILESTEM="dataFULL"
+
 mkdir ${OUTDIR}
+#OLDFILE=~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipe_clean/data_clean_flipped2
 
-
-## suggested divisions:
-# 1-3
-# 3-6
-# 6-11
-# 11-15
-# 15-24
-
-for ((CHR=$1; CHR<$2; CHR++)) #{1..23}
+for CHR in {1..23}
 do
 	mergelist=false
 	
 	rm ${OUTDIR}chunklist${CHR}.txt
 	touch ${OUTDIR}chunklist${CHR}.txt
 	
-	for file in ${INDIR}dataLOW_chr${CHR}.pos*.imputed.impute2.gz
+	for file in ${INDIR}${FILESTEM}_chr${CHR}.pos*.imputed.impute2.gz
 	do
 		FILEIN=`echo $file | awk -F.impute2 '{print $1}' | awk -F/ '{print $NF}'`
 		## create a chunklist for use in merging
 		
 		if [ "$mergelist" = true ]
-			then echo "${OUTDIR}${FILEIN}.bed ${OUTDIR}${FILEIN}.bim ${OUTDIR}${FILEIN}.fam" >> ${OUTDIR}chunklist${CHR}.txt
+			then echo "${OUTDIR}${FILEIN}.bed ${OUTDIR}${FILEIN}.bim_edited ${OUTDIR}${FILEIN}.fam" >> ${OUTDIR}chunklist${CHR}.txt
 			else mergelist=true; FIRSTFILE=${OUTDIR}${FILEIN}
 		fi
-		
-		## moved to impute_autosomes and impute_Xchrom
-		## GEN to PED
-		#${GTOOL} \
-		#-G --chr ${CHR} \
-		#--phenotype plink_pheno \
-		#--g ${INDIR}${FILEIN}.impute2.gz \
-		#--s ${INDIR}${FILEIN}.impute2_samples \
-		#--ped ${OUTDIR}${FILEIN}.ped.gz \
-		#--map ${OUTDIR}${FILEIN}.map.gz
-		
-		#gunzip ${OUTDIR}${FILEIN}.ped.gz
-		#gunzip ${OUTDIR}${FILEIN}.map.gz
-		
-		## PED to BED
-		#${PLINK} \
-		#--file ${OUTDIR}${FILEIN} \
-		#--make-bed  \
-		#--threads 6 \
-		#--maf 0.0001 \
-		#--out ${OUTDIR}${FILEIN}
-					
-		#rm ${OUTDIR}${FILEIN}.ped
-		#rm ${OUTDIR}${FILEIN}.map
 		
 		## new magic
 		## this corrects the bim file alleles and attaches three info columns
@@ -98,66 +70,72 @@ do
 	${PLINK} \
 	--bfile ${FIRSTFILE} \
 	--merge-list ${OUTDIR}chunklist${CHR}.txt \
+	--threads 6 \
 	--make-bed  \
 	--geno 0.2 \
-	--out ${OUTDIR}dataLOW_chr${CHR}_merged
+	--out ${OUTDIR}${FILESTEM}_chr${CHR}_merged
 	
-	for file in ${INDIR}dataLOW_chr${CHR}.pos*.imputed.impute2.gz
+	for file in ${INDIR}${FILESTEM}_chr${CHR}.pos*.imputed.impute2.gz
 	do
 		FILEIN=`echo $file | awk -F.impute2 '{print $1}' | awk -F/ '{print $NF}'`
-		awk 'FNR==NR{a[$2]=$7 FS $8 FS $9;next}{print $0, a[$2]}' ${OUTDIR}${FILEIN}.bim ${OUTDIR}dataLOW_chr${CHR}_merged.bim > ${OUTDIR}dataLOW_chr${CHR}_mergedPLUS.bim
-		mv ${OUTDIR}dataLOW_chr${CHR}_mergedPLUS.bim ${OUTDIR}dataLOW_chr${CHR}_merged.bim
+		awk 'FNR==NR{a[$2]=$7 FS $8 FS $9;next}{print $0, a[$2]}' ${OUTDIR}${FILEIN}.bim_edited ${OUTDIR}${FILESTEM}_chr${CHR}_merged.bim > ${OUTDIR}${FILESTEM}_chr${CHR}_mergedPLUS.bim
+		mv ${OUTDIR}${FILESTEM}_chr${CHR}_mergedPLUS.bim ${OUTDIR}${FILESTEM}_chr${CHR}_merged.bim
 		echo "working on chunk $FILEIN"
 	done
 done
 
-exit
-
 rm ${OUTDIR}chromlist.txt
 touch ${OUTDIR}chromlist.txt
 
-cat ${OUTDIR}dataLOW_chr1_merged.bim > ${OUTDIR}dataLOW_allChrPLUS.bim
+cat ${OUTDIR}${FILESTEM}_chr1_merged.bim > ${OUTDIR}${FILESTEM}_allChrPLUS.bim
 
 ## make a chromosome list and merge them
 for chrom in {2..23}
 do
-	echo "${OUTDIR}dataLOW_chr${chrom}_merged.bed ${OUTDIR}dataLOW_chr${chrom}_merged.bim ${OUTDIR}dataLOW_chr${chrom}_merged.fam" >> ${OUTDIR}chromlist.txt
-	cat ${OUTDIR}dataLOW_chr${chrom}_merged.bim >> ${OUTDIR}dataLOW_allChrPLUS.bim
+	echo "${OUTDIR}${FILESTEM}_chr${chrom}_merged.bed ${OUTDIR}${FILESTEM}_chr${chrom}_merged.bim ${OUTDIR}${FILESTEM}_chr${chrom}_merged.fam" >> ${OUTDIR}chromlist.txt
+	cat ${OUTDIR}${FILESTEM}_chr${chrom}_merged.bim >> ${OUTDIR}${FILESTEM}_allChrPLUS.bim
 done
 
 ${PLINK} \
---bfile ${OUTDIR}dataLOW_chr1_merged \
+--bfile ${OUTDIR}${FILESTEM}_chr1_merged \
 --merge-list ${OUTDIR}chromlist.txt \
+--threads 6 \
 --make-bed \
---out ${OUTDIR}dataLOW_allChr
+--out ${OUTDIR}${FILESTEM}_allChr
+
+mv ${OUTDIR}${FILESTEM}_allChrPLUS.bim ${OUTDIR}${FILESTEM}_allChr.bim
 
 ### rare alleles and AT-CG alleles need to be checked against imputations and re-included
 # first, extract the rare alleles from the imputed file to .ped with one column per allele
 ${PLINK} \
---bfile ${OUTDIR}dataLOW_allChr \
---extract ./150520_9d598c5/highMAF.txt \
+--bfile ${OUTDIR}${FILESTEM}_allChr \
+--extract ${OUTROOT}highMAF.txt \
+--make-bed \
+--out ${OUTDIR}${FILESTEM}_allChr_COMMON
+
+${PLINK} \
+--bfile ${OUTDIR}${FILESTEM}_allChr_COMMON \
 --recodeA \
---out ${OUTDIR}dataLOW_allChr_COMMON
+--out ${OUTDIR}${FILESTEM}_allChr_COMMON
 
 ## calculate MAF for classifier construction
 ${PLINK} \
---bfile ${OUTDIR}dataLOW_allChr_COMMON \
+--bfile ${OUTDIR}${FILESTEM}_allChr_COMMON \
 --freq \
---out ${OUTDIR}dataLOW_allChr_COMMON
+--out ${OUTDIR}${FILESTEM}_allChr_COMMON
 
 ## some magic
-awk 'FNR==NR {a[$1]=$2; next} $2 in a' ./150520_9d598c5/highMAF.txt ${OUTDIR}dataLOW_allChr.bim > ${OUTDIR}dataLOW_allChr_COMMON.bim
+awk 'FNR==NR {a[$1]; next} $2 in a' ${OUTROOT}highMAF.txt ${OUTDIR}${FILESTEM}_allChr.bim | tr -s ' ' \\t > ${OUTDIR}${FILESTEM}_allChr_COMMON.bim
 
 ## fam file correction - also magic
-OLD_FAM_FILE=./150520_9d598c5/dataLOW_FINAL_150520_9d598c5.fam
-awk 'FNR==NR {a[$2]=$3 FS $4; next} {print $2,$1,a[$1],$5,$6}' ${OLD_FAM_FILE} ${OUTDIR}dataLOW_allChr.fam > ${OUTDIR}dataLOW_allChr.fam_edited
-mv ${OUTDIR}dataLOW_allChr.fam_edited ${OUTDIR}dataLOW_allChr.fam
+## keep in mind that the file name and location might change here!!!
+OLD_FAM_FILE=${OUTROOT}dataLOW_FINAL_150520_9d598c5.fam
+awk 'FNR==NR {a[$2]=$3 FS $4; next} {print $2,$1,a[$1],$5,$6}' ${OLD_FAM_FILE} ${OUTDIR}${FILESTEM}_allChr.fam > ${OUTDIR}${FILESTEM}_allChr.fam_edited
+mv ${OUTDIR}${FILESTEM}_allChr.fam_edited ${OUTDIR}${FILESTEM}_allChr.fam
 
-# then recode rare alleles from genotyped data to the same format
-${PLINK} \
---bfile ~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipe_clean/data_clean_flipped2 \
---recodeA \
---out ~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipe_clean/data_clean_flipped2
+
+# ${OLDFILE}.raw yra common SNPs that were both genotyped and imputed,
+# ${OLDDIR}/QC_FINAL/${FILESTEM}_lowMAF.raw yra rare SNPs -""-
 
 exit
 

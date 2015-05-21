@@ -219,6 +219,13 @@ ${PLINK} \
 --make-bed \
 --out ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF
 
+# recode these rare alleles from genotyped data to the same format
+${PLINK} \
+--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF \
+--extract ${OUTDIR}QC_snp_2/lowMAF2.txt \
+--recodeA \
+--out ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF
+
 # plink to extract SNPs
 echo "################################"
 echo "Launching PLINK to filter SNPs for the final output"
