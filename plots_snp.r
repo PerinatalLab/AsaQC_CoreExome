@@ -7,7 +7,7 @@ inFile=args[1]
 outDir=args[2]
 
 #inFile = "~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipeline/pre-QC/data_stats"
-#outDir="./"
+#outDir="./shiny_snp_cut.txt"
 lmis=read.table(paste(inFile,".lmiss",sep=""),h=T)
 totalS=dim(lmis)[1]
 
@@ -122,7 +122,7 @@ server<-function(input, output){
                 for (i in 1:length(defaults)){
                         if(set_d[i]){output[i]=defaults[i]}
                 }
-                write.table(output, file=paste(outDir,"shiny_snp_cut.txt",sep=""),quote=FALSE,row.names=FALSE,col.names=FALSE)
+                write.table(output, file=outDir,quote=FALSE,row.names=FALSE,col.names=FALSE)
                 stopApp()
         })
 }

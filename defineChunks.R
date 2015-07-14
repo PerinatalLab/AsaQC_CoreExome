@@ -2,7 +2,7 @@
 
 #args=commandArgs(TRUE)
 #inFile=args[1]
-inFile="~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipeline/PCA2/data_clean_onlyCommon"
+inFile="./torin_FINAL_150609_87fb294"
 
 ####################################################################
 # This procedure is necessary, since Impute2 requires chromosomes to be fed in chunks,
@@ -27,9 +27,9 @@ dat=data.frame(chr=seq(23),max=NA)
       # autosomes
 for (i in 1:23) {
         print(i)
-        nam=paste("~/soft/ref1000G/binary/",i,"taken.legend",sep="")
-        fil=read.table(nam,header=F, sep=" ", colClasses=c("NULL","numeric",rep("NULL",10)))
-        dat[i,"max"]=max(fil$V2)
+        nam=paste("~/soft/ref1000G/ALL_1000G_phase1integrated_v3_chr",i,"_impute.legend.gz",sep="")
+        fil=read.table(gzfile(nam),header=T, sep=" ", colClasses=c("NULL","numeric",rep("NULL",10)))
+        dat[i,"max"]=max(fil$POSITION)
 }
 
       # chromosome X

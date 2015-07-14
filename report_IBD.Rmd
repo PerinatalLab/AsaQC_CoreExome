@@ -5,8 +5,9 @@
 # inFile <- args[1]
 # inFile="starting"
 options(stringsAsFactors=F)
+library(xtable)
 fam=read.table(paste(inFile,".fam",sep=''),h=F)
-gnm=read.table(paste("./pre-QC/ibd/",inFile,"_ibd-results.genome",sep=''),h=T)
+gnm=read.table(paste(ibdFile,"_ibd-results.genome",sep=''),h=T)
 ```
 
 Report of IBD analysis stage of pre-QC
@@ -105,7 +106,7 @@ UN_unk   = which( ! seq(dim(UN)[1])  %in% unique(c(UN_pof,UN_sib,UN_mzt,UN_hsb))
 UN_unk=NULL  
 }
 
-# extract all declared Unrelated pairs
+# extract all declared Other-Type pairs
 OT=gnm[gnm$RT=="OT",]
 # of which problematic ones are these:
 OT_unr = which(OT$PI_HAT < 0.2)
@@ -130,68 +131,110 @@ Among the **`r sum(gnm$RT=="UN")`** declared **Unrelated** pairs **`r dim(UN)[1]
 
 Among the **`r sum(gnm$RT=="FS")`** declared **Full Sibling** pairs **`r dim(FS)[1]`** problems were found (`r length(FS_unr)` were genetically Unrelated pairs, `r length(FS_pof)` Parent-Offspring pairs, `r length(FS_mzt)` Monozygotic Twins, `r length(FS_hsb)` Half Siblings, `r length(FS_unk)` Unexplained, `r FS_n_overexpl` explanations were overlapping).
 
-Among the **`r sum(gnm$RT=="OT")`** declared **Other-Type** relationship pairs `r length(OT_unr)` were genetically Unrelated, `r length(OT_pof)` were Parent-Offspring pairs, `r length(OT_sib)` were Full Siblings, `r length(OT_mzt)` Monozygotic Twins, `r length(OT_hsb)` Half Siblings, `r length(OT_unk)` Unexplained, `r OT_n_overexpl` explanations were overlapping.
+Among the **`r sum(gnm$RT=="OT")`** declared **Other-Type** pairs `r length(OT_unr)` were genetically Unrelated, `r length(OT_pof)` were Parent-Offspring pairs, `r length(OT_sib)` were Full Siblings, `r length(OT_mzt)` Monozygotic Twins, `r length(OT_hsb)` Half Siblings, `r length(OT_unk)` Unexplained, `r OT_n_overexpl` explanations were overlapping.
 
 
-Please note that for downstream procedures (phasing and imputation) only Parent-offspring problems **must** be solved now. However, it is **very important** to take into account the violation of sample independence assumption in the GWAS analysis following QC/phasing/imputation: "other-type" relationships in this report ideally should be genetically unrelated, but it actually is not, thus exclusion step is required.
+Please note that for downstream procedures (phasing and imputation) only Parent-offspring problems **must** be solved now. However, it is **very important** to take into account the violation of sample independence assumption in the GWAS analysis following QC/phasing/imputation: "other-type" relationships in this report ideally should be genetically unrelated, otherwise an additional exclusion step is required.
 
-```{r eval=FALSE, echo=FALSE}
-## sitos lenteles dar neveikia
 ------
 ## Detailed list of explained conflicts
 
 ### Declared as Parent-Offspring
 **Unrelated:**
-`r if(length(PO_unr)>0){kable(t(table(PO[PO_unr,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(PO_unr)>0) print(xtable(PO[PO_unr,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 **Full siblings:**
-`r if(length(PO_sib)>0){kable(t(table(PO[PO_sib,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(PO_sib)>0) print(xtable(PO[PO_sib,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 **Half siblings:**
-`r if(length(PO_hsb)>0){kable(t(table(PO[PO_hsb,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(PO_hsb)>0) print(xtable(PO[PO_hsb,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 **Monozygotic twins:**
-`r if(length(PO_mzt)>0){kable(t(table(PO[PO_mzt,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(PO_mzt)>0) print(xtable(PO[PO_mzt,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 ------
 ### Declared as Full-Sibling
 **Unrelated:**
-`r if(length(FS_unr)>0){kable(t(table(FS[FS_unr,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(FS_unr)>0) print(xtable(FS[FS_unr,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 **Parent-Offspring:**
-`r if(length(FS_pof)>0){kable(t(table(FS[FS_pof,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(FS_pof)>0) print(xtable(FS[FS_pof,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 **Half siblings:**
-`r if(length(FS_hsb)>0){kable(t(table(FS[FS_hsb,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(FS_hsb)>0) print(xtable(FS[FS_hsb,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 **Monozygotic twins:**
-`r if(length(FS_mzt)>0){kable(t(table(FS[FS_mzt,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(FS_mzt)>0) print(xtable(FS[FS_mzt,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 
 ------
 ### Declared as Other-Type
 **Unrelated:**
-`r if(length(OT_unr)>0){kable(t(table(OT[OT_unr,c(1:4,7:9)])),format="markdown")}`
-
-**Parent-Offspring:**
-`r if(length(OT_pof)>0){kable(t(table(OT[OT_pof,c(1:4,7:9)])),format="markdown")}`
-
-**Full siblings:**
-`r if(length(OT_sib)>0){kable(t(table(OT[OT_sib,c(1:4,7:9)])),format="markdown")}`
-
-**Half siblings:**
-`r if(length(OT_hsb)>0){kable(t(table(OT[OT_hsb,c(1:4,7:9)])),format="markdown")}`
-
-**Monozygotic twins:**
-`r if(length(OT_mzt)>0){kable(t(table(OT[OT_mzt,c(1:4,7:9)])),format="markdown")}`
+```{r echo=FALSE, results='asis'}
+if(length(OT_unr)>0) print(xtable(OT[OT_unr,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
 ```
 
+**Parent-Offspring:**
+```{r echo=FALSE, results='asis'}
+if(length(OT_pof)>0) print(xtable(OT[OT_pof,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
+
+**Full siblings:**
+```{r echo=FALSE, results='asis'}
+if(length(OT_sib)>0) print(xtable(OT[OT_sib,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
+
+**Half siblings:** (note that true uncles and aunts will also be listed here)
+```{r echo=FALSE, results='asis'}
+if(length(OT_hsb)>0) print(xtable(OT[OT_hsb,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
+
+**Monozygotic twins:**
+```{r echo=FALSE, results='asis'}
+if(length(OT_mzt)>0) print(xtable(OT[OT_mzt,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
+
+------
+### Declared as Unrelated
+
+**Parent-Offspring:**
+```{r echo=FALSE, results='asis'}
+if(length(UN_pof)>0) print(xtable(UN[UN_pof,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
+
+**Full siblings:**
+```{r echo=FALSE, results='asis'}
+if(length(UN_sib)>0) print(xtable(UN[UN_sib,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
+
+**Half siblings:** (note that true uncles and aunts will also be listed here)
+```{r echo=FALSE, results='asis'}
+if(length(UN_hsb)>0) print(xtable(UN[UN_hsb,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
+
+**Monozygotic twins:**
+```{r echo=FALSE, results='asis'}
+if(length(UN_mzt)>0) print(xtable(UN[UN_mzt,c(1:4,7:9)]),floating=FALSE,comment=FALSE,type='html')
+```
 ------
 
 ## Details about unexplained conflicts
 
-```{r,echo=FALSE, results='hide', warning = F, message=FALSE}
-library(xtable)
-```
 
 Unresolved conflicts among **Parent-Offspring** pairs:
 

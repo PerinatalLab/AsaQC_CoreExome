@@ -11,12 +11,13 @@ command=paste("./impute_Xchrom.sh ",chunks[x,1],chunks[x,2],chunks[x,3],FILE,DIR
 system(command)
 }
 
-chunks=read.table("~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipeline/prephased/chunks_output.txt",header=T)
-N<-dim(chunks)[1]
 
 args=commandArgs(TRUE)
 FILE=args[1]
 DIR=args[2]
+
+chunks=read.table(paste(DIR,"prephased/chunks_output.txt",sep=""),header=T)
+N<-dim(chunks)[1]
 #FILE="ASA_NP3_150513_chr"
 #DIR="./150521_a856cd5/"
 
@@ -34,3 +35,4 @@ mclapply(rowsX,funX,mc.preschedule=FALSE,mc.cores=6)
 #                quote=F,row.names=F,col.names=F)
 #mclapply(sel,funA,mc.preschedule=FALSE,mc.cores=6)
 
+system("./pipeline_postImpute.sh -o ~/Desktop/2015MAR/torin_new_plink/ -f torin -i 150609_87fb294")

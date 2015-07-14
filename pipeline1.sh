@@ -33,7 +33,7 @@ mkdir ${OUTDIR}
 
 # plink to make bed
 ${PLINK} \
---file ${FILEIN} \
+--bfile ${FILEIN} \
 --make-bed \
 --out ${FILENAME}
 

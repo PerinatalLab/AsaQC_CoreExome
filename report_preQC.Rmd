@@ -83,30 +83,33 @@ HWE: `r hwe_cutoff`
 HET: +/- `r hribos` SD  
 
 ```{r read_stats, echo=FALSE}
+## cut the actual filestem
+inFile=unlist(strsplit(inFile, "/"))
+inFile=inFile[length(inFile)]
 
 ## individuals missing
-imis=read.table(paste("./pre-QC/",inFile,"_stats.imiss",sep=""),h=T)
+imis=read.table(paste(outDir,inFile,"_stats.imiss",sep=""),h=T)
 totalI=dim(imis)[1]
 
 ##snps missing
-lmis=read.table(paste("./pre-QC/",inFile,"_stats.lmiss",sep=""),h=T)
+lmis=read.table(paste(outDir,inFile,"_stats.lmiss",sep=""),h=T)
 totalS=dim(lmis)[1]
 
 ##frequency
-frq=read.table(paste("./pre-QC/",inFile,"_stats.frq",sep=""),h=T)
+frq=read.table(paste(outDir,inFile,"_stats.frq",sep=""),h=T)
 
 ##hwe
-hwe=read.table(paste("./pre-QC/",inFile,"_stats.hwe",sep=""),h=T)
+hwe=read.table(paste(outDir,inFile,"_stats.hwe",sep=""),h=T)
 hweUNAFF=hwe[which(hwe$TEST=="UNAFF"),]
 
 ##heterozygosity
-het=read.table(paste("./pre-QC/",inFile,"_stats.het",sep=""),h=T)
+het=read.table(paste(outDir,inFile,"_stats.het",sep=""),h=T)
 h=(het$N.NM. - het$O.HOM.)/het$N.NM.
 hMean=mean(h)
 hSD=sd(h)
 
 ##check sex
-sex=read.table(paste("./pre-QC/",inFile,"_stats.sexcheck",sep=""),h=T)
+sex=read.table(paste(outDir,inFile,"_stats.sexcheck",sep=""),h=T)
 ```
 
 ```{r perform_tests, echo=FALSE}
@@ -193,7 +196,7 @@ par(mfrow=c(2,2))
 hist5=hist(h,breaks=100,col="grey",main="HET filter",ylab="individuals",xlab="proportion of heterozygous loci")
 nexcl5=totalI-sum(hettest)
 yc5=max(hist5$counts)/2
-xc5=mean(range(h,na.rm=T))-0.01
+xc5=mean(range(h,na.rm=T))*0.8
 text(xc5,yc5,paste("selected for exclusion:",nexcl5))
 text(xc5,yc5*1.2,paste("Heterozygosity cutoff in SDs:",hribos))
 abline(v=hMean, col="red")

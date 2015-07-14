@@ -1,5 +1,5 @@
 #!/bin/bash
-## USAGE: ./split-chr.sh -o output_files_folder, [-f filestem], [-i another_date_hash]
+## USAGE: ./pipeline3.sh -o output_files_folder, [-f filestem], [-i another_date_hash]
 ## as of now, same filestem is used for input and output
 
 while getopts "o:f:i:" opt

@@ -1,7 +1,8 @@
-```{r echo=FALSE}
+```{r echo=FALSE,message=FALSE}
 #!/usr/bin/Rscript
 
 library(knitr)
+library(gplots)
 options(stringsAsFactors=F)
 
 cutoffs<-read.table(cutoffFile,h=F)
@@ -117,7 +118,7 @@ yc5=max(hist5$counts)/2
 xc5=mean(range(statsS$MERRORS,na.rm=T))
 n_excl5=sum(hist6$counts)-sum(hist6$counts[1:sum(hist6$breaks<=me_cutoff)],na.rm=T)
 text(xc5,yc5,paste("selected for exclusion: ",n_excl5,sep="") )  
-text(xc5,yc5*1.2,paste("MAF cutoff:",me_cutoff))
+text(xc5,yc5*1.2,paste("MERR cutoff:",me_cutoff))
 abline(v=me_cutoff, col="red")
 ```
 
@@ -135,7 +136,6 @@ fail_lmiss = sum(statsS$pass_lmiss!=TRUE)
 fail_hwe = totalS-sum(statsS$pass_hwe,na.rm=T)
 fail_maf = sum(statsS$pass_freq!=TRUE,na.rm=T)
 fail_merr = sum(statsS$pass_mendel!=TRUE)
-fail_chr = totalS-sum(as.numeric(statsS$CHR)<23, na.rm=T)
 ```
 
 ## Final statistics of pre-QC filtering
@@ -146,8 +146,12 @@ SNPs flagged by LMISS filter: `r fail_lmiss`
 SNPs flagged by HWE filter: `r fail_hwe`  
 SNPs flagged by MAF filter: `r fail_maf`  
 SNPs flagged by MERR filter: `r fail_merr`  
-`r fail_chr` SNPs from non-autosomes were also removed.
 
+The following Venn diagram shows whether the same SNPs fail more than one filter:
+
+```{r vennplot,echo=FALSE}
+venn(list("HWE"=which(statsS$pass_hwe!=TRUE),"MERR"=which(statsS$pass_mendel!=TRUE),"LMISS"=which(statsS$pass_lmiss!=TRUE),"MAF"=which(statsS$pass_freq!=TRUE)))
+```
 
 ## Writing final output
 Final output will now be written to directory `r outDir`. File *full-stats* contains full filtering statistics, file *selected* contains the list for automatic selection of SNPs to keep.

@@ -1,6 +1,7 @@
-```{r echo=FALSE}
+```{r echo=FALSE,message=FALSE}
 #!/usr/bin/Rscript
 library(knitr)
+library(gplots)
 options(stringsAsFactors=F)
 
 cutoffs<-read.table(cutoffFile,h=F)
@@ -50,7 +51,7 @@ statsI=cbind(statsI, h)
 statsI=cbind(imis$FID,statsI)
 statsI=merge(statsI,merrors, by="IID", sort=F, all=T)
 statsI=statsI[,c(1:4,6)]
-names(statsI)<-c("FID","IID","F_MISS","HETEROZ", "MERRORS")
+names(statsI)<-c("IID","FID","F_MISS","HETEROZ", "MERRORS")
 ```
 
 ## General Info
@@ -122,6 +123,12 @@ Number of individuals passed all filters: `r ind_pass`
 Individuals flagged by IMISS filter: `r fail_imiss`  
 Individuals flagged by HET filter: `r fail_het`  
 Individuals flagged by MERR filter: `r fail_mendel`  
+
+The following Venn diagram shows whether the same individuals fail more than one filter:
+
+```{r vennplot,echo=FALSE}
+venn(list("HET"=which(statsI$pass_het!=TRUE),"MERR"=which(statsI$pass_mendel!=TRUE),"IMISS"=which(statsI$pass_imiss!=TRUE)))
+```
 
 ## Writing final output
 Final output will now be written to directory `r outDir`. Files *full-stats* contain full filtering statistics, files *selected* contain the lists for automatic selection of individuals and SNPs to keep.

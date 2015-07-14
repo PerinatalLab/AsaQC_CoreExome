@@ -1,0 +1,446 @@
+```{r initialize, echo=FALSE,message=FALSE}
+options(stringsAsFactors=F)
+library(kinship2)
+library(knitr)
+library(plyr)
+
+inFile="MERGED_COMMON4.fam"
+outfile="merged_new_families4.fam"
+ibdFile="150615_87fb294/ibd/data_ibd-results.genome"
+fam=read.table(inFile,h=F)
+ibd=read.table(ibdFile,h=T)
+
+data=data.frame(iid=fam$V2,pid=fam$V3,mid=fam$V4,sex=fam$V5,sti=fam$V6,fid=fam$V1)
+dataO=data
+#dataO=data.frame(iid=famO$V2,pid=famO$V3,mid=famO$V4,sti=famO$V6,sex=famO$V5,fid=famO$V1)
+```
+
+---
+title: "Report on pedigree analysis of families with any phenotypes"
+author: J. Juodakis
+output: pdf_document
+date: `r format(Sys.time(), "%F %R")`
+fig_caption: FALSE
+---
+
+Family information read from file **`r inFile`**
+
+------------------------------------------
+
+```{r findRel, echo=FALSE}
+## find all relatives of a certain individual
+findRel=function(iid,pid,mid){
+        if(pid==0) pid="miss"
+        if(mid==0) mid="miss"
+        testid=c(iid,pid,mid)
+        skip<<-unique(c(skip,iid))
+        rels=NULL
+        rels=which(allI %in% testid | allP %in% testid | allM %in% testid)
+        relstest=rels[!(allI[rels] %in% skip)]
+        if(length(relstest)>0){
+                for(i in relstest){
+                        rels=c(rels,findRel(allI[i],allP[i],allM[i]))
+                }
+        }
+        unique(rels)
+}
+
+## output one family, remove it and recurse
+processData=function(input){
+        allI<<-input$iid
+        allP<<-input$pid
+        allM<<-input$mid
+        skip<<-NULL
+        foundrels=findRel(input[1,1],input[1,2],input[1,3])
+        if(length(foundrels)>0){
+                family[[i]]<<-input[foundrels,]
+                i<<-i+1
+                input=input[-foundrels,]
+        }
+        if(dim(input)[1]>0) processData(input)
+}
+
+## launch the functions
+i<<-1
+family=list()
+processData(data)
+
+## put family sizes in a separate vector
+famsizes=NULL
+badfams=NULL
+removeFams=NULL
+for(i in 1:length(family)){
+        ## useful when adding a lot of -9 individuals for correct pedigrees
+        if(all(unique(family[[i]]$sti)==-9)){
+                removeFams=c(removeFams,TRUE)
+        } else {
+                removeFams=c(removeFams,FALSE)
+                famsizes=c(famsizes,dim(family[[i]])[1])
+                if(length(unique(family[[i]]$fid))>1){
+                        badfams=c(badfams,i)
+                }
+        }
+}
+family=family[!removeFams]
+```
+
+```{r initplotfams, echo=FALSE}
+plotFamList = function(f1,k,textPos){
+      sex=NULL
+      out=NULL
+      for(j in 1:length(f1$iid)){
+              allinds=f1$iid
+              pid=f1[j,"pid"]
+              mid=f1[j,"mid"]
+              if(pid!=0 & !(pid %in% allinds)){
+                      out=data.frame(iid=pid,pid=0,mid=0,sex=1,sti=NA,fid=0)
+                      f1=rbind(f1,out)
+              }
+              if(mid!=0 & !(mid %in% allinds)){
+                      out=data.frame(iid=mid,pid=0,mid=0,sex=2,sti=NA,fid=0)
+                      f1=rbind(f1,out)
+              }
+      }
+      f1$sti[f1$sti==0]=NA
+      f1$sti[f1$sti==-9]=NA
+      f1$sti[f1$sti==1]=0
+      f1$sti[f1$sti==2]=1
+      if(!all(f1$sti==0 | is.na(f1$sti))) {
+              # note that family IDs used here are from the larger/trios or other list, not from the full family list
+              ped1=pedigree(id=f1$iid,famid=rep(k,length(f1$iid)),dadid=f1$pid,momid=f1$mid,sex=f1$sex,missid=0,affected=f1$sti)
+              ped1$affected=factor(f1$sti)
+              plot(ped1[1],mar=c(2,2,6,2))
+              text(textPos,0.9,paste("Family ",ped1$famid[1],sep=""),col="red")
+      } else familiesomitted<<-familiesomitted+1
+}
+```
+
+## General Information
+
+Total of **`r length(family)`** families were detected in this process. Also, **`r sum(removeFams)`** families were removed due to having no genotyped individuals (i.e., all phenotypes are missing). Their sizes are distributed as shown further in Fig. 1.
+
+```{r plot1, echo=FALSE, fig.width=5,fig.height=5}
+barplot(table(factor(famsizes,levels=min(famsizes):max(famsizes))),space=0,xaxt="n")
+axis(side=1,at=seq(1,max(famsizes),1)-0.5,labels=seq(1,max(famsizes),1))
+```
+
+In total, `r length(badfams)` of the new families contain members with >1 different family IDs. The family IDs that were previously assigned to the members in these merged families are presented in the following table:
+
+```{r famchangetable,echo=FALSE}
+if(length(badfams)>0){
+        baddf=data.frame(V1=badfams,V2=rep(1, length(badfams)))
+        for(i in badfams){
+                baddf[baddf$V1==i,2]=paste(unique(family[[i]]$fid),collapse=", ")
+        }
+
+        colnames(baddf)=c("ID of new family", "Unique family IDs found in the input data")
+        kable(baddf,align='c', format='markdown')
+} else print("None")
+```
+
+```{r famgroups,echo=FALSE}
+### paprastas seimas galima isskirstyti i grupes
+singles=list()
+doubles=list()
+trios=list()
+larger=list()
+j1=j2=j3=j4=1
+for(i in 1:length(family)){
+        if(famsizes[i]==1){
+                singles[[j1]]=family[[i]]
+                j1=j1+1
+        } else if(famsizes[i]==2){
+                doubles[[j2]]=family[[i]]
+                j2=j2+1
+        } else if(famsizes[i]==3){
+                trios[[j3]]=family[[i]]
+                j3=j3+1
+        } else {
+                larger[[j4]]=family[[i]]
+                j4=j4+1
+        }
+}
+```
+
+## Families of simple types
+
+In total, the group assignment algorithm found **`r length(singles)`** single individuals, **`r length(doubles)`** families of two individuals, **`r length(trios)`** families of three individuals and **`r length(larger)`** larger families.
+
+Among **single invididuals**, the phenotypes were distributed as follows (with 1 - control, 2 - case):
+
+```{r phe1, echo=FALSE}
+df1=ldply(singles, data.frame)
+kable(t(table(df1["sti"])))
+```
+
+```{r phe2, echo=FALSE}
+pheSib=NULL
+phePO=NULL
+errorsD=NULL
+for(i in 1:length(doubles)){
+        fam=doubles[[i]]
+        if(fam[1,"pid"]==fam[2,"pid"] & fam[1,"mid"]==fam[2,"mid"]){
+                pheSib=cbind(pheSib,paste(sort(fam$sti),collapse=","))
+        } else if(fam[1,"iid"] %in% fam[2,2:3] | fam[2,"iid"] %in% fam[1,2:3]){
+                phePO=cbind(phePO,paste(sort(fam$sti),collapse=","))
+        } else errorsD=cbind(errorsD,i)
+}
+if(length(errorsD)==0) perrorsD="None" else perrorsD=doubles[errorsD]
+```
+
+The families of **two individiduals** are separated into duos of **full siblings** (n=`r length(pheSib)` duos) and **parent-offspring** (n=`r length(phePO)` duos).  
+
+Among **parent-offspring** duos, the phenotypes were distributed as follows:  
+`r if(length(phePO)>0) kable(t(table(phePO)))`  
+Among **full sibling** duos, the phenotypes were distributed as follows:  
+`r if(length(pheSib)>0) kable(t(table(pheSib)))`  
+
+
+In addition, `r length(errorsD)` errors (could be duos of other types) were found in these new families:
+```{r errorsD,echo=FALSE}
+print(perrorsD)
+```  
+
+## Three-individual families
+
+```{r phe3, echo=FALSE}
+phe3F=NULL
+phe3S=NULL
+phe3H=NULL
+phe3M=NULL
+phe3PSO=NULL
+sample3F=NULL
+sample3S=NULL
+sample3H=NULL
+sample3M=NULL
+sample3PSO=NULL
+errorsT=NULL
+
+for(j in 1:length(trios)){
+        fam=trios[[j]]
+        assigned=FALSE
+        famfather=0
+        fammother=0
+        if(length(unique(fam[,"pid"]))==1 & length(unique(fam[,"mid"]))==1){
+                if(fam[1,"pid"]!=0){
+                        ## full sib trio
+                        phe3S=cbind(phe3S,paste(sort(fam$sti),collapse=","))
+                        if(2 %in% fam$sti) sample3S=fam
+                        assigned=TRUE
+                }
+        } else if(length(unique(fam[,"pid"]))==1 | length(unique(fam[,"mid"]))==1){
+                if(fam[1,"pid"]!=0){
+                        ## trio with one or more half sibs
+                        phe3H=cbind(phe3H,paste(sort(fam$sti),collapse=","))
+                        if(2 %in% fam$sti) sample3H=fam
+                        assigned=TRUE
+                }
+        } else {
+                for(i in 1:3){
+                        sp=sum(fam$pid==fam[i,"iid"])
+                        sm=sum(fam$mid==fam[i,"iid"])
+                        if((sp>0 & fam[i,"sex"]==2) | (sm>0 & fam[i,"sex"]==1)){
+                                ## sex mismatches parental columns
+                                errorsT=cbind(errorsT,j)
+                                assigned=TRUE
+                                break
+                        } else if (sp+sm==2){
+                                ## one parent and two Os, correct sex; P phenotype first
+                                phe3M=cbind(phe3M,paste(c(fam[i,"sti"],sort(fam$sti[-i])),collapse=","))
+                                if(2 %in% fam$sti) sample3M=fam
+                                assigned=TRUE
+                        } else if(sp==1){
+                                #one O from this ind, sex=M
+                                famfather=fam[i,"iid"]
+                                if(fam[i,"pid"] %in% fam[-i,"pid"] & fam[i,"mid"] %in% fam[-i,"mid"] & fam[i,"pid"] != 0){
+                                        ## father + sibling + offspring
+                                        phe3PSO=cbind(phe3PSO,paste(c(fam[i,"sti"],sort(fam$sti[-i])),collapse=","))
+                                        if(2 %in% fam$sti) sample3PSO=fam
+                                        assigned=TRUE
+                                }
+                        } else if(sm==1){
+                                #one O from this ind, sex=F
+                                fammother=fam[i,"iid"]
+                                if(fam[i,"pid"] %in% fam[-i,"pid"] & fam[i,"mid"] %in% fam[-i,"mid"] & fam[i,"pid"] != 0){
+                                        ## mother + sibling + offspring
+                                        ## (these two types are grouped together as of now)
+                                        phe3PSO=cbind(phe3PSO,paste(c(fam[i,"sti"],sort(fam$sti[-i])),collapse=","))
+                                        if(2 %in% fam$sti) sample3PSO=fam
+                                        assigned=TRUE
+                                }
+                        } else if(sm==0 & sp==0){
+                                # it's an offspring
+                                famoffspring=fam[i,"iid"]
+                        } else {
+                                errorsT=cbind(errorsT,j)
+                                break
+                        }
+                }
+                ## full trio
+                off=which(fam$iid!=famfather & fam$iid!=fammother)
+                if(length(off)==1){
+                        if(fam[off,"pid"]==famfather & fam[off,"mid"]==fammother) {
+                                phe3F=cbind(phe3F,paste(sort(fam$sti),collapse=","))
+                                if(2 %in% fam$sti) sample3F=fam
+                                assigned=TRUE
+                        }
+                }
+                if(!assigned) errorsT=cbind(errorsT,j)
+        }      
+}
+if(length(errorsT)==0) perrorsT="None" else perrorsT=trios[errorsT]
+```
+
+Three individual families can form more varied connections. In the present data, there are **`r length(phe3F)`** full trios (consisting of **P**arent + **M**other + **O**ffspring), **`r length(phe3S)`** trios of full siblings (3O), **`r length(phe3H)`** trios of siblings with at least one half sibling (2O+HS), **`r length(phe3PSO)`** trios of a parent, sibling, and offspring (P+S+O or M+S+O), and **`r length(phe3M)`** trios of parent and siblings (P+2O or M+2O; O may be full or half siblings).
+
+
+Among **P+M+O** three-individual families, the phenotypes were distributed as follows (not ordered):  
+`r if(length(phe3F)>0) kable(t(table(phe3F)))`  
+Among **3O** three-individual families, the phenotypes were distributed as follows:  
+`r if(length(phe3S)>0) kable(t(table(phe3S)))`   
+Among **2O+HS** three-individual families, the phenotypes were distributed as follows:  
+`r if(length(phe3H)>0) kable(t(table(phe3H)))`   
+Among **P+2O and M+2O** three-individual families, the phenotypes were distributed as follows (with parent phenotype first):  
+`r if(length(phe3M)>0) kable(t(table(phe3M)))`   
+Among **P+S+O and M+S+O** three-individual families, the phenotypes were distributed as follows (with parent phenotype first):  
+`r if(length(phe3PSO)>0) kable(t(table(phe3PSO)))`   
+
+In addition, `r length(errorsT)` errors (could be three-individual families of other types) were found in these families:
+```{r errorsT,echo=FALSE}
+print(perrorsT)
+```  
+
+### Sample pedigrees
+
+Examples of pedigrees formed by each type of three-individual families are presented below.
+
+**P+M+O**  
+```{r expl1, echo=FALSE,fig.height=3,fig.width=3}
+## note that the family IDs were not stored, so they are omitted from the plot by setting y=0
+if(length(sample3F)>0) plotFamList(sample3F, 1, 0) else print("no suitable families of this type")
+```
+
+**3O**  
+```{r expl2, echo=FALSE,fig.height=3,fig.width=3}
+if(length(sample3S)>0) plotFamList(sample3S, 1, 0) else print("no suitable families of this type")
+```
+
+**2O+HS**  
+```{r expl3, echo=FALSE,fig.height=3,fig.width=3}
+if(length(sample3H)>0) plotFamList(sample3H, 1, 0) else print("no suitable families of this type")
+```
+
+**P+2O or M+2O**  
+```{r expl4, echo=FALSE,fig.height=3,fig.width=3}
+if(length(sample3M)>0) plotFamList(sample3M, 1, 0) else print("no suitable families of this type")
+```
+
+**P+S+O or M+S+O**  
+```{r expl5, echo=FALSE,fig.height=3,fig.width=3}
+if(length(sample3PSO)>0) plotFamList(sample3PSO, 1, 0) else print("no suitable families of this type")
+```
+
+## Families of more than 3 individuals
+
+In addition to the families described above, **`r length(larger)`** larger families have been found. They are listed individually at the end of the document.
+
+Output will now be written to file `r outfile`.
+```{r writeout, echo=FALSE}
+names(family)=seq_along(family)
+dffamily=ldply(family)
+
+write.table(dffamily[,1:6],file=outfile,sep="\t", quote=F, row.names=F, col.names=F)
+```
+
+## Manually selected problems from IBD
+
+Certain families still have unresolved IBD issues. In these cases, the pedigree reflects the original information provided in .fam file, which is incorrect. The tables below list all relevant information from the IBD analysis for each of these families.
+
+```{r ibdissues, echo=FALSE}
+ibdpairsF=list(c("90"),c("110"),c("72","204"),c("164","172"),c("150","345"))
+for(i in ibdpairsF){
+        print(paste("IBD information on families",paste(i,collapse=" and "),sep=" "))
+        print(ibd[ibd$FID1 %in% i & ibd$FID2 %in% i,1:10])
+}
+
+#ibdpairs=list(c("90","90_2_1","90_3"),c("110","110_4_1"))
+#for(i in ibdpairs){
+#        print(paste("IBD information on individuals",i[1],"and",i[2],sep=" "))
+#        print(ibd[ibd$IID1 %in% i & ibd$IID2 %in% i,1:10])
+#}
+```
+
+-------
+
+# APPENDIX I: Families with confirmed errors
+
+A number of individuals had mismatches between the indicated gender and parental status (e.g. a woman is indicated as the father of another individual). In such cases, manual corrections were necessary before drawing the pedigrees. Individuals with these errors, together with their offspring, are listed below:
+
+```{r gendererrors, echo=FALSE}
+allpidO=dataO$pid
+allmidO=dataO$mid
+badPars=list()
+badMoms=list()
+for(inum in 1:length(dataO$iid)){
+        iid=dataO$iid[inum]
+        if((iid %in% allpidO) & dataO[inum,"sex"]!=1){
+                # not male, but indicated in father column
+                badPars[[length(badPars)+1]]=dataO[which(dataO$iid==iid | allpidO==iid | allmidO==iid),]
+        } else if ((iid %in% allmidO) & dataO[inum,"sex"]!=2){
+                # not female, but indicated in mother column
+                badMoms[[length(badMoms)+1]]=dataO[which(dataO$iid==iid | allpidO==iid | allmidO==iid),]
+        }
+}
+```
+
+**Fathers with indicated gender other than male (1)**
+```{r badPars, echo=FALSE}
+if(length(badPars>0)) print(badPars) else print("None")
+```
+
+**Mothers with indicated gender other than female (2)**
+```{r badMoms, echo=FALSE}
+if(length(badMoms>0)) print(badMoms) else print("None")
+```
+
+# APPENDIX II: Pedigree plots of unusual three-individual families
+
+```{r complextrio, echo=FALSE,warning=FALSE}
+### keistiems trio reikalingas sitas plotinimo procesas
+familiesomitted<<-0
+for(k in errorsT){
+        plotFamList(trios[[k]],k,1)
+}
+```
+
+Also, **`r familiesomitted`** families were omitted due to having no affected individuals.
+
+# APPENDIX III: Pedigree plots of all larger families
+
+```{r complexphe, echo=FALSE,warning=FALSE}
+### komplikuotoms seimoms reikalingas sitas plotinimo procesas
+familiesomitted<<-0
+for(k in 1:length(larger)){
+      plotFamList(larger[[k]],k,1.5)
+}
+```
+
+Also, **`r familiesomitted`** families were omitted due to having no affected individuals.
+
+# APPENDIX IV: Full list of families
+
+## Duos
+*(currently disabled)*
+```{r app2, echo=FALSE,eval=FALSE}
+print(doubles)
+```
+
+## Three-individual families
+```{r app3, echo=FALSE}
+print(trios)
+```
+
+## Larger families
+```{r app4, echo=FALSE}
+print(larger)
+```

@@ -1,13 +1,41 @@
 #!/bin/bash
 ### this script is used for conversion and merging of imputed files
 
-GTOOL=~/soft/gtool2/gtool
-PLINK=~/soft/plink/plink
 
-OUTROOT=./150521_254cd8f/
+
+## USAGE: ./pipeline_postImpute.sh -o output_files_folder, [-f filestem], [-i another_date_hash]
+## as of now, same filestem is used for input and output
+
+while getopts "o:f:i:" opt
+do
+	case $opt in
+		o) OUTPATH=${OPTARG};;
+		f) FILESTEM=${OPTARG};;
+		i) DATE_HASH=${OPTARG};;
+	esac
+done
+
+if [ $# -eq 0 ]; then
+	echo "No arguments provided - output directory (-o) is mandatory";
+	exit
+fi
+
+date="$(date +'%y%m%d')"
+hash="$(git --git-dir ~/Documents/gitrep/.git log --pretty=format:'%h' -n 1)"
+DATE_HASH=${DATE_HASH:-"${date}_${hash}"}
+
+OUTROOT=${OUTPATH}${DATE_HASH}/
+FILESTEM=${FILESTEM:-"data"}
+
+#OUTROOT=./150521_254cd8f/
 OUTDIR=${OUTROOT}processed/
 INDIR=${OUTROOT}imputed/
-FILESTEM="dataFULL"
+
+## PRE-IMPUTED fam, for restoring parent IDs
+OLD_FAM_FILE=${OUTROOT}${FILESTEM}_FINAL_${DATE_HASH}.fam
+
+GTOOL=~/soft/gtool2/gtool
+PLINK=~/soft/plink/plink
 
 mkdir ${OUTDIR}
 #OLDFILE=~/Desktop/2015MAR/NB-0472_141021_ResultReport/NB-0472_141021_PLINK_PCF_TOP/pipe_clean/data_clean_flipped2
@@ -103,7 +131,16 @@ ${PLINK} \
 --make-bed \
 --out ${OUTDIR}${FILESTEM}_allChr
 
-mv ${OUTDIR}${FILESTEM}_allChrPLUS.bim ${OUTDIR}${FILESTEM}_allChr.bim
+#mv ${OUTDIR}${FILESTEM}_allChrPLUS.bim ${OUTDIR}${FILESTEM}_allChr.bim
+
+## fam file correction - also magic
+awk 'FNR==NR {a[$2]=$3 FS $4; next} {print $2,$1,a[$1],$5,$6}' ${OLD_FAM_FILE} ${OUTDIR}${FILESTEM}_allChr.fam > ${OUTDIR}${FILESTEM}_allChr.fam_edited
+mv ${OUTDIR}${FILESTEM}_allChr.fam_edited ${OUTDIR}${FILESTEM}_allChr.fam
+
+
+exit
+
+
 
 ### rare alleles and AT-CG alleles need to be checked against imputations and re-included
 # first, extract the rare alleles from the imputed file to .ped with one column per allele
@@ -126,18 +163,6 @@ ${PLINK} \
 
 ## some magic
 awk 'FNR==NR {a[$1]; next} $2 in a' ${OUTROOT}highMAF.txt ${OUTDIR}${FILESTEM}_allChr.bim | tr -s ' ' \\t > ${OUTDIR}${FILESTEM}_allChr_COMMON.bim
-
-## fam file correction - also magic
-## keep in mind that the file name and location might change here!!!
-OLD_FAM_FILE=${OUTROOT}dataLOW_FINAL_150520_9d598c5.fam
-awk 'FNR==NR {a[$2]=$3 FS $4; next} {print $2,$1,a[$1],$5,$6}' ${OLD_FAM_FILE} ${OUTDIR}${FILESTEM}_allChr.fam > ${OUTDIR}${FILESTEM}_allChr.fam_edited
-mv ${OUTDIR}${FILESTEM}_allChr.fam_edited ${OUTDIR}${FILESTEM}_allChr.fam
-
-
-# ${OLDFILE}.raw yra common SNPs that were both genotyped and imputed,
-# ${OLDDIR}/QC_FINAL/${FILESTEM}_lowMAF.raw yra rare SNPs -""-
-
-exit
 
 ## remove the rare alleles...
 ${PLINK} \

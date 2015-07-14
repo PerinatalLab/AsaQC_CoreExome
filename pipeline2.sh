@@ -3,14 +3,14 @@
 # USAGE: -o output_files_folder, [-f filestem], [-c cutoff_files_folder], [-i another_date_hash]
 # additional cutoff files have to be provided in the same names as generated here
 
-GENERATE_CUTOFF=TRUE
+GENERATE_CUTOFF=true
 while getopts "o:f:c:i:" opt
 do
 	case $opt in
 		o) OUTROOT=${OPTARG};;
 		f) FILESTEM=${OPTARG};;
 		c) PARAMS=${OPTARG}
-			GENERATE_CUTOFF=FALSE;;
+			GENERATE_CUTOFF=false;;
 		i) DATE_HASH=${OPTARG};;
 	esac
 done
@@ -55,7 +55,7 @@ ${PLINK} \
 echo "PLINK analysis for individual QC round 1 complete."
 
 # launch shiny Rscript to generate plots and cutoffs, if none provided
-if [${GENERATE_CUTOFF}]; then echo "Launching Shiny R script to manually select cutoff values for individual QC round 1"
+if $GENERATE_CUTOFF; then echo "Launching Shiny R script to manually select cutoff values for individual QC round 1"
 ./plots_ind.r ${OUTDIR}QC_ind_1/${FILESTEM}_stats ${OUTDIR}cutoff_ind_1.txt
 echo "Cutoff values written to file."
 else
@@ -96,12 +96,13 @@ ${PLINK} \
 --autosome \
 --mendel \
 --mendel-duos \
+--mendel-multigen \
 --out ${OUTDIR}QC_snp_1/${FILESTEM}_stats
 echo "PLINK analysis for SNP QC round 1 complete."
 
 # launch shiny Rscript to generate plots and cutoffs, if none provided
-if [${GENERATE_CUTOFF}]; then echo "Launching Shiny R script to manually select cutoff values for SNP QC round 1"
-./plots_snp.r ./QC_snp_1/${FILESTEM}_stats ${OUTDIR}cutoff_snp_1.txt
+if $GENERATE_CUTOFF; then echo "Launching Shiny R script to manually select cutoff values for SNP QC round 1"
+./plots_snp.r ${OUTDIR}QC_snp_1/${FILESTEM}_stats ${OUTDIR}cutoff_snp_1.txt
 echo "Cutoff values written to file."
 else
 echo "Using the cutoff values provided in ${PARAMS}"
@@ -147,7 +148,7 @@ echo "PLINK analysis for individual QC round 2 complete."
 
 
 # launch shiny Rscript to generate plots and cutoffs, if none provided
-if [${GENERATE_CUTOFF}]; then echo "Launching Shiny R script to manually select cutoff values for individual QC round 2"
+if $GENERATE_CUTOFF; then echo "Launching Shiny R script to manually select cutoff values for individual QC round 2"
 ./plots_ind.r ${OUTDIR}QC_ind_2/${FILESTEM}_stats ${OUTDIR}cutoff_ind_2.txt
 echo "Cutoff values written to file."
 else
@@ -188,12 +189,13 @@ ${PLINK} \
 --autosome \
 --mendel \
 --mendel-duos \
+--mendel-multigen \
 --out ${OUTDIR}QC_snp_2/${FILESTEM}_stats
 echo "PLINK analysis for SNP QC round 2 complete."
 
 # launch shiny Rscript to generate plots and cutoffs, if none provided
-if [${GENERATE_CUTOFF}]; then echo "Launching Shiny R script to manually select cutoff values for SNP QC round 2"
-./plots_snp.r ./QC_snp_2/${FILESTEM}_stats ${OUTDIR}cutoff_snp_2.txt
+if $GENERATE_CUTOFF; then echo "Launching Shiny R script to manually select cutoff values for SNP QC round 2"
+./plots_snp.r ${OUTDIR}QC_snp_2/${FILESTEM}_stats ${OUTDIR}cutoff_snp_2.txt
 echo "Cutoff values written to file."
 else
 echo "Using the cutoff values provided in ${PARAMS}"
@@ -219,12 +221,12 @@ ${PLINK} \
 --make-bed \
 --out ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF
 
-# recode these rare alleles from genotyped data to the same format
-${PLINK} \
---bfile ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF \
---extract ${OUTDIR}QC_snp_2/lowMAF2.txt \
---recodeA \
---out ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF
+## recode these rare alleles from genotyped data to the same format
+#${PLINK} \
+#--bfile ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF \
+#--extract ${OUTDIR}QC_snp_2/lowMAF2.txt \
+#--recodeA \
+#--out ${OUTDIR}QC_FINAL/${FILESTEM}_lowMAF
 
 # plink to extract SNPs
 echo "################################"
